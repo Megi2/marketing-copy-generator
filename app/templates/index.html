@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .form-group {
+        margin-bottom: 20px;
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    input, textarea, select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+    input:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    .required::after {
+        content: " *";
+        color: red;
+    }
+    .btn-generate {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 14px 32px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .btn-generate:hover {
+        transform: translateY(-2px);
+    }
+    .btn-generate:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    #result-section {
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px solid #f0f0f0;
+    }
+    .copy-item {
+        background: #f8f9fa;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .copy-text {
+        flex: 1;
+        font-size: 15px;
+        color: #333;
+    }
+    .btn-copy {
+        background: #667eea;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 12px;
+    }
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<form id="generate-form">
+    <div class="form-group">
+        <label class="required">주제 (Topic)</label>
+        <input type="text" name="topic" id="topic" placeholder="예: 봄 신상품 세일" required>
+    </div>
+    
+    <div class="form-group">
+        <label>팀 ID (Team ID)</label>
+        <select name="team_id" id="team_id">
+            <option value="">선택 안 함 (일반 스타일)</option>
+            <option value="team_growth">그로스 마케팅 팀</option>
+            <option value="team_brand">브랜드 마케팅 팀</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label>타겟 고객 (Target Audience)</label>
+        <input type="text" name="target_audience" id="target_audience" placeholder="예: 20-30대 여성">
+    </div>
+    
+    <div class="form-group">
+        <label>톤앤매너 (Tone)</label>
+        <select name="tone" id="tone">
+            <option value="친근한">친근한</option>
+            <option value="전문적인">전문적인</option>
+            <option value="감성적인">감성적인</option>
+            <option value="긴박한">긴박한</option>
+            <option value="프리미엄">프리미엄</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label>참고 텍스트 (Reference)</label>
+        <textarea name="reference_text" id="reference_text" rows="3" placeholder="AI가 참고할 기초 텍스트 (선택사항)"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label>생성 개수</label>
+        <input type="number" name="count" id="count" value="5" min="1" max="10">
+    </div>
+    
+    <button type="submit" class="btn-generate">✨ 문구 생성하기</button>
+</form>
+
+<div id="result-section" style="display: none;">
+    <h2>📝 생성된 문구</h2>
+    <div id="results"></div>
+</div>
+{% endblock %}

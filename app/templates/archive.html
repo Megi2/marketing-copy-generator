@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .section {
+        margin-bottom: 40px;
+    }
+    .section h2 {
+        color: #667eea;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+    .trend-item {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+    .trend-keyword {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .trend-info {
+        display: flex;
+        gap: 16px;
+        font-size: 14px;
+        color: #666;
+    }
+    .trend-category {
+        background: #667eea;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+    .archive-item {
+        background: #f8f9fa;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        border-left: 4px solid #764ba2;
+    }
+    .archive-text {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .archive-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 13px;
+        color: #666;
+    }
+    select.team-selector {
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h2>🔥 최신 트렌드</h2>
+    <div id="trends-container">
+        <div class="loading">트렌드를 불러오는 중...</div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>📚 팀별 문구 아카이브</h2>
+    <select class="team-selector" id="team-selector" onchange="loadArchive(this.value)">
+        <option value="">팀 선택</option>
+        <option value="team_growth">그로스 마케팅 팀</option>
+        <option value="team_brand">브랜드 마케팅 팀</option>
+    </select>
+    <div id="archive-container">
+        <p style="color: #999;">팀을 선택하면 과거 문구를 확인할 수 있습니다.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 페이지 로드 시 트렌드 자동 로드
+    window.addEventListener('DOMContentLoaded', () => {
+        loadTrends();
+    });
+</script>
+{% endblock %}
