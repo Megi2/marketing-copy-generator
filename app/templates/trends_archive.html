@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}트렌드 아카이브 - 마케팅 문구 생성 AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section {
+        margin-bottom: 40px;
+    }
+    .section h2 {
+        color: #667eea;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+    .trend-item {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+    .trend-keyword {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .trend-info {
+        display: flex;
+        gap: 16px;
+        font-size: 14px;
+        color: #666;
+    }
+    .trend-category {
+        background: #667eea;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+    .loading {
+        text-align: center;
+        color: #999;
+        padding: 20px;
+    }
+    .empty-state {
+        text-align: center;
+        color: #999;
+        padding: 40px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .refresh-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-bottom: 20px;
+        transition: background 0.3s;
+    }
+    .refresh-btn:hover {
+        background: #764ba2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h2>🔥 최신 트렌드</h2>
+    <p style="color: #666; margin-bottom: 20px;">현재 가장 인기 있는 마케팅 트렌드와 키워드를 확인할 수 있습니다.</p>
+    
+    <button class="refresh-btn" onclick="loadTrends()">🔄 트렌드 새로고침</button>
+    
+    <div id="trends-container">
+        <div class="loading">트렌드를 불러오는 중...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 페이지 로드 시 트렌드 자동 로드
+    window.addEventListener('DOMContentLoaded', () => {
+        loadTrends();
+    });
+    
+    function loadTrends() {
+        const container = document.getElementById('trends-container');
+        container.innerHTML = '<div class="loading">트렌드를 불러오는 중...</div>';
+        
+        fetch('/api/trends?limit=20')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayTrends(data.trends);
+                } else {
+                    container.innerHTML = `<div class="empty-state"><p>오류: ${data.error}</p></div>`;
+                }
+            })
+            .catch(error => {
+                container.innerHTML = `<div class="empty-state"><p>오류가 발생했습니다: ${error.message}</p></div>`;
+            });
+    }
+    
+    function displayTrends(trends) {
+        const container = document.getElementById('trends-container');
+        
+        if (!trends || trends.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>현재 트렌드 데이터가 없습니다.</p></div>';
+            return;
+        }
+        
+        const html = trends.map(trend => `
+            <div class="trend-item">
+                <div class="trend-keyword">${trend.keyword}</div>
+                <div class="trend-info">
+                    <span class="trend-category">${trend.category || '일반'}</span>
+                    <span>점수: ${trend.trend_score || 'N/A'}</span>
+                    <span>언급: ${trend.mention_count || 0}</span>
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+</script>
+{% endblock %}

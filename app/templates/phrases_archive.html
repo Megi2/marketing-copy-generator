@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}문구 아카이브 - 마케팅 문구 생성 AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section {
+        margin-bottom: 40px;
+    }
+    .section h2 {
+        color: #667eea;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+    .archive-item {
+        background: #f8f9fa;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #764ba2;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .archive-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .archive-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        flex: 1;
+    }
+    .archive-date {
+        font-size: 14px;
+        color: #666;
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+    .archive-message {
+        font-size: 16px;
+        color: #555;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+    .archive-meta {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto auto auto;
+        gap: 10px;
+        font-size: 13px;
+        align-items: start;
+    }
+    .meta-item-target {
+        grid-column: 1;
+        background: white;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #e9ecef;
+        word-break: break-word;
+    }
+    .meta-item {
+        background: white;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #e9ecef;
+        min-width: 80px;
+        text-align: center;
+    }
+    .meta-label {
+        font-weight: bold;
+        color: #495057;
+        display: block;
+        margin-bottom: 2px;
+    }
+    .meta-value {
+        color: #007bff;
+        font-weight: bold;
+    }
+    .performance-high {
+        border-left-color: #28a745;
+    }
+    .performance-medium {
+        border-left-color: #ffc107;
+    }
+    .performance-low {
+        border-left-color: #dc3545;
+    }
+    .filter-controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+    select.team-selector, select.sort-selector {
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        min-width: 200px;
+        font-size: 14px;
+    }
+    select.team-selector:focus, select.sort-selector:focus {
+        border-color: #667eea;
+        outline: none;
+    }
+    .sort-title {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    .sort-title h3 {
+        color: #667eea;
+        margin: 0;
+        font-size: 20px;
+    }
+    
+    .warning-text {
+        font-size: 12px;
+        color: #ff6b6b;
+        margin: 5px 0 0 0;
+        font-style: italic;
+    }
+    .loading {
+        text-align: center;
+        color: #999;
+        padding: 20px;
+    }
+    .empty-state {
+        text-align: center;
+        color: #999;
+        padding: 40px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h2>📚 팀별 문구 아카이브</h2>
+    <p style="color: #666; margin-bottom: 20px;">팀을 선택하여 과거에 생성된 마케팅 문구들을 확인할 수 있습니다.</p>
+    
+    <div class="filter-controls">
+        <select class="team-selector" id="team-selector" onchange="loadArchive()">
+            <option value="">팀 선택</option>
+            <option value="1">그로스마케팅팀 (407개 문구)</option>
+            <option value="3">버티컬마케팅팀 (214개 문구)</option>
+            <option value="4">마케팅운영팀 (137개 문구)</option>
+            <option value="9">식품팀 (27개 문구)</option>
+            <option value="2">여행서비스TFT (12개 문구)</option>
+            <option value="8">리빙팀 (10개 문구)</option>
+            <option value="5">스포츠레저팀 (8개 문구)</option>
+            <option value="13">b tft (4개 문구)</option>
+            <option value="10">유아동패션팀 (3개 문구)</option>
+            <option value="14">명품잡화팀 (3개 문구)</option>
+            <option value="11">L.TOWN팀 (5개 문구)</option>
+            <option value="16">B2B팀 (2개 문구)</option>
+            <option value="6">패션팀 (2개 문구)</option>
+            <option value="7">브랜드뷰티팀 (1개 문구)</option>
+            <option value="12">제휴서비스상품팀 (1개 문구)</option>
+            <option value="15">브랜드패션팀 (1개 문구)</option>
+            <option value="17">디지털가전팀 (1개 문구)</option>
+        </select>
+        
+        <select class="sort-selector" id="sort-selector" onchange="loadArchive()">
+            <option value="latest">최신순 10개</option>
+            <option value="conversion_rate">전환율 높은 순 10개</option>
+            <option value="ctr">CTR 높은 순 10개</option>
+            <option value="impression_count">노출수 높은 순 10개</option>
+            <option value="click_count">클릭수 높은 순 10개</option>
+            <option value="conversion_count">전환수 높은 순 10개</option>
+        </select>
+    </div>
+    
+    <div id="archive-container">
+        <div class="empty-state">
+            <p>팀을 선택하면 과거 문구를 확인할 수 있습니다.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadArchive() {
+        const container = document.getElementById('archive-container');
+        const teamId = document.getElementById('team-selector').value;
+        const sortBy = document.getElementById('sort-selector').value;
+        
+        if (!teamId) {
+            container.innerHTML = '<div class="empty-state"><p>팀을 선택하면 과거 문구를 확인할 수 있습니다.</p></div>';
+            return;
+        }
+        
+        container.innerHTML = '<div class="loading">문구를 불러오는 중...</div>';
+        
+        fetch(`/api/archive?team_id=${teamId}&sort_by=${sortBy}&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayArchive(data.copies, sortBy);
+                } else {
+                    container.innerHTML = `<div class="empty-state"><p>오류: ${data.error}</p></div>`;
+                }
+            })
+            .catch(error => {
+                container.innerHTML = `<div class="empty-state"><p>오류가 발생했습니다: ${error.message}</p></div>`;
+            });
+    }
+    
+    function displayArchive(copies, sortBy) {
+        const container = document.getElementById('archive-container');
+        
+        if (!copies || copies.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>아직 저장된 문구가 없습니다.</p></div>';
+            return;
+        }
+        
+        // 중복 제거하면서 최대 10개까지 채우기
+        const finalCopies = [];
+        const seenContent = new Set();
+        
+        // 첫 번째 패스: 중복 제거하면서 최대 10개까지 채우기
+        for (const copy of copies) {
+            const contentKey = `${copy.title || ''}|${copy.message || ''}`;
+            if (!seenContent.has(contentKey)) {
+                seenContent.add(contentKey);
+                finalCopies.push(copy);
+                
+                // 10개가 되면 중단
+                if (finalCopies.length >= 10) {
+                    break;
+                }
+            }
+        }
+        
+        // 두 번째 패스: 10개가 안 되면 나머지 유니크한 문구로 채우기
+        if (finalCopies.length < 10) {
+            for (const copy of copies) {
+                const contentKey = `${copy.title || ''}|${copy.message || ''}`;
+                if (!seenContent.has(contentKey)) {
+                    seenContent.add(contentKey);
+                    finalCopies.push(copy);
+                    
+                    // 10개가 되면 중단
+                    if (finalCopies.length >= 10) {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 실제 데이터 개수만큼만 표시
+        const actualCount = finalCopies.length;
+        
+        // 정렬 기준에 따른 제목 설정 (실제 개수 반영)
+        const sortTitles = {
+            'latest': `최신순 ${actualCount}개`,
+            'conversion_rate': `전환율 높은 순 ${actualCount}개`,
+            'ctr': `CTR 높은 순 ${actualCount}개`,
+            'impression_count': `노출수 높은 순 ${actualCount}개`,
+            'click_count': `클릭수 높은 순 ${actualCount}개`,
+            'conversion_count': `전환수 높은 순 ${actualCount}개`
+        };
+        
+        const sortTitle = sortTitles[sortBy] || `문구 목록 (${actualCount}개)`;
+        
+        const html = `
+            <div class="sort-title">
+                <h3>📊 ${sortTitle}</h3>
+                ${actualCount < 10 ? '<p class="warning-text">⚠️ 중복 문구 제거로 인해 10개 미만으로 표시될 수 있습니다.</p>' : ''}
+            </div>
+            ${finalCopies.map((copy, index) => {
+            // 성과에 따른 클래스 결정
+            const conversionRate = copy.conversion_rate || 0;
+            let performanceClass = 'performance-low';
+            if (conversionRate > 0.1) performanceClass = 'performance-high';
+            else if (conversionRate > 0.05) performanceClass = 'performance-medium';
+            
+            return `
+                <div class="archive-item ${performanceClass}">
+                    <div class="archive-header">
+                        <div class="archive-title">#${index + 1} ${copy.title || '제목 없음'}</div>
+                        <div class="archive-date">${copy.send_date || 'N/A'}</div>
+                    </div>
+                    <div class="archive-message">${copy.message || '내용 없음'}</div>
+                    <div class="archive-meta">
+                        <div class="meta-item-target">
+                            <span class="meta-label">타겟</span>
+                            <span class="meta-value">${copy.target_audience || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">전환율</span>
+                            <span class="meta-value">${(conversionRate * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">CTR</span>
+                            <span class="meta-value">${((copy.ctr || 0) * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">노출수</span>
+                            <span class="meta-value">${(copy.impression_count || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">클릭수</span>
+                            <span class="meta-value">${(copy.click_count || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">전환수</span>
+                            <span class="meta-value">${(copy.conversion_count || 0).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('')}
+        `;
+        
+        container.innerHTML = html;
+    }
+</script>
+{% endblock %}

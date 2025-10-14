@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}CSV 업로드 - 마케팅 문구 생성 AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-section {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 30px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 20px;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .upload-area:hover {
+        border-color: #764ba2;
+        background: #f0f0f0;
+    }
+    .upload-area.dragover {
+        border-color: #28a745;
+        background: #d4edda;
+    }
+    .file-input {
+        display: none;
+    }
+    .upload-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+    }
+    .upload-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .upload-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .file-info {
+        margin-top: 20px;
+        padding: 15px;
+        background: #e9ecef;
+        border-radius: 8px;
+        display: none;
+    }
+    .progress-bar {
+        width: 100%;
+        height: 20px;
+        background: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 20px 0;
+        display: none;
+    }
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    .status-message {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 8px;
+        display: none;
+    }
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .status-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    .instructions {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+    .instructions h3 {
+        color: #667eea;
+        margin-bottom: 15px;
+    }
+    .instructions ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .instructions li {
+        margin-bottom: 8px;
+        color: #555;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-section">
+    <h2>📁 CSV 파일 업로드</h2>
+    <p style="color: #666; margin-bottom: 30px;">CSV 파일을 업로드하여 마케팅 문구 데이터를 데이터베이스에 추가할 수 있습니다.</p>
+    
+    <div class="instructions">
+        <h3>📋 업로드 가이드</h3>
+        <ul>
+            <li><strong>파일 형식:</strong> CSV 또는 JSON 파일 업로드 가능</li>
+            <li><strong>컬럼 구조:</strong> 4열부터 시작하는 고정된 구조</li>
+        </ul>
+    </div>
+    
+    <div class="upload-area" id="upload-area">
+        <div>
+            <h3>📤 파일을 드래그하거나 클릭하여 업로드</h3>
+            <p>CSV 파일을 여기에 드래그하거나 아래 버튼을 클릭하세요</p>
+            <input type="file" id="file-input" class="file-input" accept=".csv" />
+            <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+                파일 선택
+            </button>
+        </div>
+    </div>
+    
+    <div class="file-info" id="file-info">
+        <h4>선택된 파일:</h4>
+        <p id="file-name"></p>
+        <p id="file-size"></p>
+    </div>
+    
+    <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    
+    <div style="text-align: center;">
+        <button class="upload-btn" id="upload-btn" onclick="uploadFile()" disabled>
+            데이터베이스에 업로드
+        </button>
+    </div>
+    
+    <div class="status-message" id="status-message"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedFile = null;
+    
+    // 드래그 앤 드롭 이벤트
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const uploadBtn = document.getElementById('upload-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    const statusMessage = document.getElementById('status-message');
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+    
+    function handleFile(file) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showStatus('CSV 파일만 업로드 가능합니다.', 'error');
+            return;
+        }
+        
+        selectedFile = file;
+        document.getElementById('file-name').textContent = `파일명: ${file.name}`;
+        document.getElementById('file-size').textContent = `크기: ${(file.size / 1024).toFixed(1)} KB`;
+        fileInfo.style.display = 'block';
+        uploadBtn.disabled = false;
+    }
+    
+    function uploadFile() {
+        if (!selectedFile) return;
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = '업로드 중...';
+        progressBar.style.display = 'block';
+        
+        fetch('/api/upload-csv', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(`업로드 완료! ${data.count}개의 문구가 추가되었습니다.`, 'success');
+                progressFill.style.width = '100%';
+            } else {
+                showStatus(`업로드 실패: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            showStatus(`업로드 중 오류 발생: ${error.message}`, 'error');
+        })
+        .finally(() => {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '데이터베이스에 업로드';
+        });
+    }
+    
+    function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message status-${type}`;
+        statusMessage.style.display = 'block';
+    }
+</script>
+{% endblock %}

@@ -18,4 +18,5 @@ class Config:
     
     # 스케줄러 설정 (주 1회 트렌드 업데이트)
     TREND_UPDATE_DAY = 'mon'  # 월요일
-    TREND_UPDATE_HOUR = 9     # 오전 9시
+    TREND_UPDATE_HOUR = 10     # 오전 9시
+    TREND_UPDATE_MINUTE = 15

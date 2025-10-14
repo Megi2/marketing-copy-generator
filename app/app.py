@@ -25,8 +25,8 @@ def create_app():
         # TODO: 실제 Google Search API 호출 및 데이터 수집
         # 현재는 더미 데이터로 테스트
         dummy_trends = [
-            {'keyword': '봄신상', 'category': 'fashion', 'mention_count': 1500, 'trend_score': 8.5},
-            {'keyword': '에코백', 'category': 'lifestyle', 'mention_count': 1200, 'trend_score': 7.8}
+            {'keyword': '전진하', 'category': 'fashion', 'mention_count': 1500, 'trend_score': 9.5},
+            {'keyword': '진하답기', 'category': 'lifestyle', 'mention_count': 1200, 'trend_score': 8.8}
         ]
         
         logic.archive_trends(dummy_trends)
@@ -37,7 +37,8 @@ def create_app():
         weekly_trend_update,
         'cron',
         day_of_week=Config.TREND_UPDATE_DAY,
-        hour=Config.TREND_UPDATE_HOUR
+        hour=Config.TREND_UPDATE_HOUR,
+        minute=Config.TREND_UPDATE_MINUTE
     )
     
     scheduler.start()
