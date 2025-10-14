@@ -57,12 +57,58 @@ function displayResults(copies) {
     copies.forEach((copy, index) => {
         const div = document.createElement('div');
         div.className = 'copy-item';
-        div.innerHTML = `
-            <span class="copy-text">${index + 1}. ${copy}</span>
-            <button class="btn-copy" onclick="copyToClipboard('${copy.replace(/'/g, "\\'")}')">
-                📋 복사
-            </button>
-        `;
+        
+        // 앱푸시인 경우 타이틀과 본문을 구분하여 표시
+        if (copy.title && copy.message) {
+            div.innerHTML = `
+                <div class="copy-text">
+                    <div class="copy-title"><strong>타이틀:</strong> ${copy.title}</div>
+                    <div class="copy-message"><strong>본문:</strong> ${copy.message}</div>
+                </div>
+                <button class="btn-copy" onclick="copyToClipboard('타이틀: ${copy.title}\\n본문: ${copy.message}')">
+                    📋 복사
+                </button>
+            `;
+        } else if (copy.message && copy.message.includes('타이틀:')) {
+            // "타이틀: ..." 형식의 문자열을 파싱
+            const messageText = copy.message;
+            const titleMatch = messageText.match(/타이틀:\s*(.+)/);
+            const bodyMatch = messageText.match(/본문:\s*(.+)/);
+            
+            if (titleMatch) {
+                const title = titleMatch[1].trim();
+                const body = bodyMatch ? bodyMatch[1].trim() : '(광고) ' + title;
+                
+                div.innerHTML = `
+                    <div class="copy-text">
+                        <div class="copy-title"><strong>타이틀:</strong> ${title}</div>
+                        <div class="copy-message"><strong>본문:</strong> ${body}</div>
+                    </div>
+                    <button class="btn-copy" onclick="copyToClipboard('타이틀: ${title}\\n본문: ${body}')">
+                        📋 복사
+                    </button>
+                `;
+            } else {
+                // 파싱 실패 시 기존 방식
+                const copyText = copy.message || copy;
+                div.innerHTML = `
+                    <span class="copy-text">${index + 1}. ${copyText}</span>
+                    <button class="btn-copy" onclick="copyToClipboard('${copyText.replace(/'/g, "\\'")}')">
+                        📋 복사
+                    </button>
+                `;
+            }
+        } else {
+            // RCS인 경우 기존 방식
+            const copyText = copy.message || copy;
+            div.innerHTML = `
+                <span class="copy-text">${index + 1}. ${copyText}</span>
+                <button class="btn-copy" onclick="copyToClipboard('${copyText.replace(/'/g, "\\'")}')">
+                    📋 복사
+                </button>
+            `;
+        }
+        
         resultsDiv.appendChild(div);
     });
 }

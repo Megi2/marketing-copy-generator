@@ -104,13 +104,18 @@ class MarketingLogic:
         tone = params.get('tone', '전문적이고 친근한')
         count = params.get('count', 5)
         reference_text = params.get('reference_text', '')
+        keywords = params.get('keywords', '')
+        brand = params.get('brand', '')
+        event_name = params.get('event_name', '')
+        channel = params.get('channel', 'RCS')
+        use_emoji = params.get('use_emoji', 'true').lower() == 'true'
         
         # 1. 팀 스타일 조회 (team_id가 있는 경우)
         team_style_context = ""
         if team_id:
             team_copies = self.get_team_style(team_id)
             if team_copies:
-                examples = "\n".join([f"- {c['copy_text']}" for c in team_copies[:3]])
+                examples = "\n".join([f"- {c['title']}: {c['message']}" for c in team_copies[:3]])
                 team_style_context = f"\n\n### 팀 스타일 참고:\n{examples}"
         
         # 2. 최신 트렌드 조회
@@ -119,33 +124,70 @@ class MarketingLogic:
         trend_context = f"\n\n### 최신 트렌드 키워드:\n{trend_keywords}"
         
         # 3. LLM 프롬프트 구성
-        prompt = f"""
-당신은 전문 마케팅 카피라이터입니다. 다음 조건에 맞는 마케팅 문구를 {count}개 생성해주세요.
+        keywords_context = ""
+        if keywords:
+            keywords_context = f"\n\n### 필수 포함 키워드:\n{keywords}\n(반드시 이 키워드들을 문구에 포함해주세요)"
+        
+        brand_context = ""
+        if brand:
+            brand_context = f"\n\n### 브랜드:\n{brand}"
+            
+        event_context = ""
+        if event_name:
+            event_context = f"\n\n### 행사명:\n{event_name}"
+        
+        emoji_instruction = ""
+        if use_emoji:
+            emoji_instruction = "\n- 이모지를 적절히 사용하여 시각적 효과를 높이세요"
+        else:
+            emoji_instruction = "\n- 이모지는 사용하지 마세요"
+        
+        if channel == 'RCS':
+            prompt = f"""
+당신은 전문 마케팅 카피라이터입니다. RCS 메시지용 마케팅 문구를 {count}개 생성해주세요.
 
 ### 주제:
-{topic}
+{topic}{brand_context}{event_context}
 
 ### 타겟 고객:
 {target_audience}
 
 ### 톤앤매너:
-{tone}
+{tone}{keywords_context}
 {team_style_context}
 {trend_context}
 
 ### 참고 텍스트:
 {reference_text if reference_text else '없음'}
 
-### 요구사항:
-1. 각 문구는 한 줄로 작성 (최대 50자)
-2. 타겟 고객의 감성을 자극하는 표현 사용
-3. 최신 트렌드를 자연스럽게 반영
-4. 클릭을 유도하는 강력한 CTA 포함
+### RCS 요구사항:
+1. 전체 메시지는 100자 이내로 작성
+2. 간결하고 임팩트 있는 메시지{emoji_instruction}
+3. 타겟 고객의 감성을 자극하는 표현 사용
+4. 최신 트렌드를 자연스럽게 반영
 
 ### 출력 형식:
 1. [문구1]
 2. [문구2]
 ...
+"""
+        else:  # APP_PUSH
+            prompt = f"""
+앱푸시 마케팅 문구를 {count}개 생성해주세요.
+
+주제: {topic}{brand_context}{event_context}
+타겟: {target_audience}
+톤: {tone}{keywords_context}
+{team_style_context}
+{trend_context}
+
+각 문구는 반드시 다음 형식으로 출력하세요:
+1. 타이틀: [15-20자 제목]
+본문: (광고) [40자 이내 내용]{emoji_instruction}
+2. 타이틀: [15-20자 제목]
+본문: (광고) [40자 이내 내용]{emoji_instruction}
+
+타이틀과 본문을 모두 포함해야 합니다.
 """
         
         # 4. LLM 호출
@@ -153,12 +195,53 @@ class MarketingLogic:
         
         # 5. 결과 파싱
         copies = []
-        for line in result.split('\n'):
-            line = line.strip()
-            if line and line[0].isdigit():
-                # "1. " 같은 번호 제거
-                copy_text = line.split('.', 1)[1].strip()
-                copies.append(copy_text)
+        if channel == 'APP_PUSH':
+            # 앱푸시 파싱: "타이틀: [내용]\n본문: [내용]" 형식
+            lines = result.split('\n')
+            current_copy = {}
+            
+            for line in lines:
+                line = line.strip()
+
+                # "타이틀:" 또는 "5. 타이틀:" 형태 모두 처리
+                if '타이틀:' in line:
+                    if current_copy and current_copy.get('title'):
+                        # 본문이 없어도 타이틀만으로 문구 생성
+                        if not current_copy.get('message'):
+                            current_copy['message'] = '(광고) ' + current_copy.get('title', '')
+                        copies.append(current_copy)
+
+                    # "타이틀:" 이후의 텍스트만 추출
+                    title_text = line.split('타이틀:', 1)[1].strip()
+                    current_copy = {'title': title_text, 'message': ''}
+
+                elif '본문:' in line:
+                    if current_copy:
+                        # "본문:" 이후의 텍스트만 추출
+                        message_text = line.split('본문:', 1)[1].strip()
+                        current_copy['message'] = message_text
+            
+            # 마지막 문구 추가
+            if current_copy and current_copy.get('title'):
+                if not current_copy.get('message'):
+                    current_copy['message'] = '(광고) ' + current_copy.get('title', '')
+                copies.append(current_copy)
+                
+            # 파싱 실패 시 전체 텍스트를 메시지로 처리
+            if not copies:
+                for line in result.split('\n'):
+                    line = line.strip()
+                    if line and line[0].isdigit():
+                        copy_text = line.split('.', 1)[1].strip()
+                        copies.append({'message': copy_text})
+        else:
+            # RCS 파싱: 기존 방식
+            for line in result.split('\n'):
+                line = line.strip()
+                if line and line[0].isdigit():
+                    # "1. " 같은 번호 제거
+                    copy_text = line.split('.', 1)[1].strip()
+                    copies.append({'message': copy_text})
         
         return copies[:count]
     
