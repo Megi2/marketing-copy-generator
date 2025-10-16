@@ -13,6 +13,10 @@ class LLMService:
         Gemini API를 사용해 마케팅 문구 생성
         """
         try:
+            print("=" * 80)
+            print("LLM 문구 생성")
+            print("=" * 80)
+            print(prompt)
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:

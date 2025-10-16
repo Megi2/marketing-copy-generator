@@ -22,8 +22,6 @@ CREATE TABLE IF NOT EXISTS marketing_copies (
     conversion_rate REAL DEFAULT 0.0,
     trend_keywords TEXT,
     is_ai_generated BOOLEAN DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (team_id) REFERENCES teams(team_id) ON DELETE CASCADE
 );
 

@@ -1,19 +1,21 @@
 from db import get_trends_db, get_phrases_db
 from core.llm import LLMService
+from core.vector_store import VectorStore
 import json
 
 class MarketingLogic:
     def __init__(self):
         self.llm = LLMService()
+        self.vector_store = VectorStore()
     
-    def get_team_style(self, team_id: str, sort_by: str = 'conversion_rate', limit: int = 50) -> list:
-        """팀별 과거 문구 스타일 가져오기 - 정렬 옵션 지원"""
+    def get_team_style(self, team_id: str, sort_by: str = 'conversion_rate', limit: int = 50, channel: str = None) -> list:
+        """팀별 과거 문구 스타일 가져오기 - 정렬 옵션 및 채널 필터링 지원"""
         conn = get_phrases_db()
         cursor = conn.cursor()
         
         # 정렬 기준 설정
         sort_columns = {
-            'latest': 'created_at DESC',
+            'latest': 'send_date DESC',
             'conversion_rate': 'conversion_rate DESC, ctr DESC',
             'ctr': 'ctr DESC, conversion_rate DESC',
             'impression_count': 'impression_count DESC',
@@ -22,6 +24,11 @@ class MarketingLogic:
         }
         
         order_clause = sort_columns.get(sort_by, 'conversion_rate DESC, ctr DESC')
+        
+        # 채널 필터링 조건 추가
+        channel_condition = ""
+        if channel:
+            channel_condition = f"AND channel = '{channel}'"
         
         # 성과가 좋았던 문구 우선 조회
         cursor.execute(f"""
@@ -36,9 +43,10 @@ class MarketingLogic:
                 conversion_rate,
                 impression_count,
                 click_count,
-                conversion_count
+                conversion_count,
+                channel
             FROM marketing_copies
-            WHERE team_id = ?
+            WHERE team_id = ? {channel_condition}
             ORDER BY {order_clause}
             LIMIT ?
         """, (team_id, limit))
@@ -50,10 +58,26 @@ class MarketingLogic:
         copies = []
         for row in results:
             content_data = json.loads(row['content_data']) if row['content_data'] else {}
+            
+            # 채널별로 content_data 구조 다르게 처리
+            if row['channel'] == 'RCS':
+                # RCS의 경우 button과 message 사용
+                title = content_data.get('button', '')
+                message = content_data.get('message', '')
+                
+                # content_data가 비어있으면 keywords나 target_audience 사용
+                if not title and not message:
+                    title = row['keywords'] or '버튼 텍스트 없음'
+                    message = row['target_audience'] or '메시지 내용 없음'
+            else:
+                # APP_PUSH의 경우 title과 message 사용
+                title = content_data.get('title', '')
+                message = content_data.get('message', '')
+            
             copies.append({
                 'copy_id': row['copy_id'],
-                'title': content_data.get('title', ''),
-                'message': content_data.get('message', ''),
+                'title': title,
+                'message': message,
                 'keywords': row['keywords'],
                 'target_audience': row['target_audience'],
                 'tone': row['tone'],
@@ -62,7 +86,8 @@ class MarketingLogic:
                 'conversion_rate': row['conversion_rate'],
                 'impression_count': row['impression_count'],
                 'click_count': row['click_count'],
-                'conversion_count': row['conversion_count']
+                'conversion_count': row['conversion_count'],
+                'channel': row['channel']
             })
         
         return copies
@@ -104,19 +129,99 @@ class MarketingLogic:
         tone = params.get('tone', '전문적이고 친근한')
         count = params.get('count', 5)
         reference_text = params.get('reference_text', '')
-        keywords = params.get('keywords', '')
+        discount_type = params.get('discount_type', '')
+        appeal_point = params.get('appeal_point', '')
         brand = params.get('brand', '')
         event_name = params.get('event_name', '')
         channel = params.get('channel', 'RCS')
         use_emoji = params.get('use_emoji', 'true').lower() == 'true'
         
-        # 1. 팀 스타일 조회 (team_id가 있는 경우)
-        team_style_context = ""
-        if team_id:
-            team_copies = self.get_team_style(team_id)
-            if team_copies:
-                examples = "\n".join([f"- {c['title']}: {c['message']}" for c in team_copies[:3]])
-                team_style_context = f"\n\n### 팀 스타일 참고:\n{examples}"
+        # 1. RAG를 통한 관련 문구 검색
+        rag_context = ""
+        
+        # 검색 쿼리 구성
+        search_query_parts = [topic]
+        if discount_type:
+            search_query_parts.append(discount_type)
+        if appeal_point:
+            search_query_parts.append(appeal_point)
+        if brand:
+            search_query_parts.append(brand)
+        if event_name:
+            search_query_parts.append(event_name)
+        
+        search_query = " ".join(search_query_parts)
+        
+        # 벡터 저장소 상태 확인
+        try:
+            stats = self.vector_store.get_collection_stats()
+            print(f"\n📊 벡터 저장소 상태: {stats}")
+        except Exception as e:
+            print(f"\n❌ 벡터 저장소 상태 확인 실패: {e}")
+        
+        # 벡터 검색으로 관련 문구 찾기 (RCS 최적화 조건)
+        print(f"\n🔍 벡터 검색 시작 (쿼리: '{search_query}')")
+        print(f"📋 검색 조건: team_id={team_id}, channel={channel}, min_ctr=0.01, min_conversion_rate=0.005, min_similarity=0.6")
+        
+        try:
+            similar_phrases = self.vector_store.search_similar_phrases(
+                query=search_query,
+                n_results=20,  # 충분한 후보 확보
+                team_id=team_id,
+                channel=channel,  # 동일한 채널만 검색
+                min_ctr=0.01,  # CTR 1% 이상
+                min_conversion_rate=0.005,  # 전환율 0.5% 이상
+                min_similarity=0.6  # 유사도 60% 이상으로 강화
+            )
+            print(f"📊 벡터 검색 결과: {len(similar_phrases)}개 문구 발견 (채널: {channel})")
+        except Exception as e:
+            print(f"❌ 벡터 검색 실패: {e}")
+            similar_phrases = []
+        
+        # unique_phrases 초기화 (프롬프트에서 사용하기 위해)
+        unique_phrases = []
+        
+        if similar_phrases:
+            # 중복 제거: 동일한 제목+내용 조합 제거
+            unique_phrases = []
+            seen_combinations = set()
+            
+            for phrase in similar_phrases:
+                combination = f"{phrase['title']}|{phrase['message']}"
+                if combination not in seen_combinations:
+                    seen_combinations.add(combination)
+                    unique_phrases.append(phrase)
+            
+            # CTR 순서로 정렬 (높은 CTR 우선)
+            unique_phrases.sort(key=lambda x: x['ctr'], reverse=True)
+            
+            # 상위 3개만 선택
+            unique_phrases = unique_phrases[:3]
+            
+            # 디버깅: 참고 문구 콘솔 출력
+            print(f"\n🔍 RAG 검색 결과 (쿼리: '{search_query}')")
+            print(f"📊 전체 검색: {len(similar_phrases)}개 → 중복 제거 후: {len(unique_phrases)}개")
+            print("=" * 80)
+            
+            examples = []
+            for i, phrase in enumerate(unique_phrases):
+                print(f"📝 참고 문구 {i+1}:")
+                print(f"   유사도: {phrase['similarity_score']:.3f}")
+                print(f"   성과: CTR {phrase['ctr']:.2%}, 전환율 {phrase['conversion_rate']:.2%}")
+                print(f"   제목: {phrase['title']}")
+                print(f"   내용: {phrase['message']}")
+                print(f"   팀: {phrase['team_id']}")
+                print("-" * 60)
+                
+                examples.append(f"- {phrase['title']}: {phrase['message']} (CTR: {phrase['ctr']:.2%}, 전환율: {phrase['conversion_rate']:.2%})")
+            
+            rag_context = f"\n\n### 성과 좋은 유사 문구 참고:\n" + "\n".join(examples)
+            print("=" * 80)
+        else:
+            print(f"\n⚠️ 벡터 검색 결과가 없습니다. 검색 조건을 완화하거나 데이터를 확인해주세요.")
+            print(f"   검색 쿼리: '{search_query}'")
+            print(f"   팀 ID: {team_id}")
+            print("=" * 80)
         
         # 2. 최신 트렌드 조회
         trends = self.get_recent_trends(5)
@@ -124,9 +229,13 @@ class MarketingLogic:
         trend_context = f"\n\n### 최신 트렌드 키워드:\n{trend_keywords}"
         
         # 3. LLM 프롬프트 구성
-        keywords_context = ""
-        if keywords:
-            keywords_context = f"\n\n### 필수 포함 키워드:\n{keywords}\n(반드시 이 키워드들을 문구에 포함해주세요)"
+        discount_context = ""
+        if discount_type:
+            discount_context = f"\n\n### 할인 유형:\n{discount_type}\n(반드시 이 할인 정보를 문구에 포함해주세요)"
+        
+        appeal_context = ""
+        if appeal_point:
+            appeal_context = f"\n\n### 소구 포인트:\n{appeal_point}\n(고객에게 어필할 핵심 포인트를 강조해주세요)"
         
         brand_context = ""
         if brand:
@@ -143,6 +252,33 @@ class MarketingLogic:
             emoji_instruction = "\n- 이모지는 사용하지 마세요"
         
         if channel == 'RCS':
+            # 실제 참고 문구를 사용한 예시 생성
+            example_format = ""
+            if unique_phrases:
+                for i, phrase in enumerate(unique_phrases[:3]):  # 상위 3개 사용
+                    example_format += f"""
+{i+1}. 버튼: {phrase['title']}
+메시지: {phrase['message']}
+
+"""
+            else:
+                example_format = """
+1. 버튼: 지금 바로 구매하기
+메시지: 롯데ON 뷰티 세일! ✨
+
+신규고객 30% 할인 혜택
+
+봄신상 뷰티템을 특가로 만나보세요! 💖
+
+2. 버튼: 뷰티 혜택 확인하기
+메시지: 롯데ON에서 뷰티 세일 진행중! 🎉
+
+최대 30% 할인에 신규고객 추가 혜택까지!
+
+지금 바로 확인해보세요 ✨
+
+"""
+
             prompt = f"""
 당신은 전문 마케팅 카피라이터입니다. RCS 메시지용 마케팅 문구를 {count}개 생성해주세요.
 
@@ -153,23 +289,27 @@ class MarketingLogic:
 {target_audience}
 
 ### 톤앤매너:
-{tone}{keywords_context}
-{team_style_context}
+{tone}{discount_context}{appeal_context}
+{rag_context}
 {trend_context}
 
 ### 참고 텍스트:
 {reference_text if reference_text else '없음'}
 
 ### RCS 요구사항:
-1. 전체 메시지는 100자 이내로 작성
-2. 간결하고 임팩트 있는 메시지{emoji_instruction}
-3. 타겟 고객의 감성을 자극하는 표현 사용
-4. 최신 트렌드를 자연스럽게 반영
+1. 버튼 텍스트는 15자 이내로 간결하고 매력적인 문구 작성
+2. 메시지는 100자 이내로 작성하며 문단 단위로 줄바꿈을 두 번씩 하여 가독성 향상
+3. 할인 혜택은 숫자와 함께 강조하여 표시 (예: 30% 할인, 최대 50% OFF)
+4. 센스있는 후킹 문구로 고객의 관심을 끌어야 함
+5. 이모지를 적절히 사용하여 시각적 효과를 높이세요(이모지를 사용하는 경우 브랜드 양옆에 동일한 이모지를 넣어 강조)
+6. 타겟 고객의 감성을 자극하는 표현 사용
+7. 최신 트렌드를 자연스럽게 반영
 
-### 출력 형식:
-1. [문구1]
-2. [문구2]
-...
+### 출력 형식 (정확히 이 형식을 따라주세요):
+{example_format}
+위와 같은 형식으로 반드시 버튼과 메시지를 모두 포함하여 출력하세요.
+메시지는 문단 단위로 줄바꿈을 두 번씩 하여 가독성을 높이고, 할인 혜택을 강조하세요.
+
 """
         else:  # APP_PUSH
             prompt = f"""
@@ -177,8 +317,8 @@ class MarketingLogic:
 
 주제: {topic}{brand_context}{event_context}
 타겟: {target_audience}
-톤: {tone}{keywords_context}
-{team_style_context}
+톤: {tone}{discount_context}{appeal_context}
+{rag_context}
 {trend_context}
 
 각 문구는 반드시 다음 형식으로 출력하세요:
@@ -192,6 +332,19 @@ class MarketingLogic:
         
         # 4. LLM 호출
         result = self.llm.generate_copy(prompt)
+        
+        # 참고 문구 정보 저장 (API 응답용)
+        referenced_phrases = []
+        if similar_phrases:
+            for phrase in unique_phrases[:3]:  # 상위 3개만
+                referenced_phrases.append({
+                    'title': phrase['title'],
+                    'message': phrase['message'],
+                    'similarity_score': phrase['similarity_score'],
+                    'ctr': phrase['ctr'],
+                    'conversion_rate': phrase['conversion_rate'],
+                    'team_id': phrase['team_id']
+                })
         
         # 5. 결과 파싱
         copies = []
@@ -213,12 +366,16 @@ class MarketingLogic:
 
                     # "타이틀:" 이후의 텍스트만 추출
                     title_text = line.split('타이틀:', 1)[1].strip()
+                    # 마크다운 형식 제거
+                    title_text = title_text.replace('**', '')
                     current_copy = {'title': title_text, 'message': ''}
 
                 elif '본문:' in line:
                     if current_copy:
                         # "본문:" 이후의 텍스트만 추출
                         message_text = line.split('본문:', 1)[1].strip()
+                        # 마크다운 형식 제거
+                        message_text = message_text.replace('**', '')
                         current_copy['message'] = message_text
             
             # 마지막 문구 추가
@@ -235,15 +392,70 @@ class MarketingLogic:
                         copy_text = line.split('.', 1)[1].strip()
                         copies.append({'message': copy_text})
         else:
-            # RCS 파싱: 기존 방식
-            for line in result.split('\n'):
+            # RCS 파싱: 개선된 버튼과 메시지 분리 처리
+            lines = result.split('\n')
+            current_copy = {}
+            
+            for line in lines:
                 line = line.strip()
+                
+                # 번호가 있는 줄인지 확인
                 if line and line[0].isdigit():
+                    # 기존 문구가 있으면 저장
+                    if current_copy and (current_copy.get('button') or current_copy.get('message')):
+                        copies.append(current_copy)
+                    
+                    # 새로운 문구 시작
+                    current_copy = {}
+                    
                     # "1. " 같은 번호 제거
-                    copy_text = line.split('.', 1)[1].strip()
-                    copies.append({'message': copy_text})
+                    content = line.split('.', 1)[1].strip()
+                    
+                    # 버튼과 메시지 구분
+                    if '버튼:' in content:
+                        button_text = content.split('버튼:', 1)[1].strip()
+                        button_text = button_text.replace('**', '')
+                        current_copy['button'] = button_text
+                    elif '메시지:' in content:
+                        message_text = content.split('메시지:', 1)[1].strip()
+                        message_text = message_text.replace('**', '')
+                        current_copy['message'] = message_text
+                    else:
+                        # 구분자가 없으면 메시지로 처리 (기존 방식)
+                        content = content.replace('**', '')
+                        current_copy['message'] = content
+                
+                elif line and current_copy and '메시지:' in line:
+                    # 메시지: 로 시작하는 줄 처리
+                    message_text = line.split('메시지:', 1)[1].strip()
+                    message_text = message_text.replace('**', '')
+                    current_copy['message'] = message_text
+                
+                elif line and current_copy and 'message' in current_copy:
+                    # 메시지 내용의 연속으로 처리 (줄바꿈 유지)
+                    # 빈 줄이면 문단 구분을 위해 두 번의 줄바꿈 추가
+                    if line == '':
+                        current_copy['message'] += '\n\n'
+                    else:
+                        current_copy['message'] += '\n' + line.replace('**', '')
+            
+            # 마지막 문구 저장
+            if current_copy and (current_copy.get('button') or current_copy.get('message')):
+                copies.append(current_copy)
+            
+            # 파싱이 실패한 경우 기존 방식으로 fallback
+            if not copies:
+                for line in result.split('\n'):
+                    line = line.strip()
+                    if line and line[0].isdigit():
+                        copy_text = line.split('.', 1)[1].strip()
+                        copy_text = copy_text.replace('**', '')
+                        copies.append({'message': copy_text})
         
-        return copies[:count]
+        return {
+            'copies': copies[:count],
+            'referenced_phrases': referenced_phrases
+        }
     
     def save_generated_copy(self, team_id: str, copy_text: str, params: dict):
         """생성된 문구를 DB에 저장 (중복 방지) - add_marketing_copy 함수 사용"""

@@ -8,7 +8,7 @@
         margin-bottom: 40px;
     }
     .section h2 {
-        color: #667eea;
+        color: #6d67a8;
         margin-bottom: 20px;
         font-size: 24px;
     }
@@ -44,7 +44,12 @@
         font-size: 16px;
         color: #555;
         margin-bottom: 12px;
-        line-height: 1.4;
+        line-height: 1.6;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: pre-wrap;
+        max-width: 100%;
+        overflow-wrap: break-word;
     }
     .archive-meta {
         display: grid;
@@ -94,15 +99,15 @@
         margin-bottom: 20px;
         align-items: center;
     }
-    select.team-selector, select.sort-selector {
+    select.team-selector, select.sort-selector, select.channel-selector {
         padding: 10px;
         border: 2px solid #e0e0e0;
         border-radius: 8px;
         min-width: 200px;
         font-size: 14px;
     }
-    select.team-selector:focus, select.sort-selector:focus {
-        border-color: #667eea;
+    select.team-selector:focus, select.sort-selector:focus, select.channel-selector:focus {
+        border-color: #6d67a8;
         outline: none;
     }
     .sort-title {
@@ -111,7 +116,7 @@
         border-bottom: 2px solid #f0f0f0;
     }
     .sort-title h3 {
-        color: #667eea;
+        color: #6d67a8;
         margin: 0;
         font-size: 20px;
     }
@@ -164,6 +169,12 @@
             <option value="17">디지털가전팀 (1개 문구)</option>
         </select>
         
+        <select class="channel-selector" id="channel-selector" onchange="loadArchive()">
+            <option value="">채널 선택</option>
+            <option value="RCS">RCS</option>
+            <option value="APP_PUSH">앱푸시</option>
+        </select>
+        
         <select class="sort-selector" id="sort-selector" onchange="loadArchive()">
             <option value="latest">최신순 10개</option>
             <option value="conversion_rate">전환율 높은 순 10개</option>
@@ -188,6 +199,7 @@
         const container = document.getElementById('archive-container');
         const teamId = document.getElementById('team-selector').value;
         const sortBy = document.getElementById('sort-selector').value;
+        const channel = document.getElementById('channel-selector').value;
         
         if (!teamId) {
             container.innerHTML = '<div class="empty-state"><p>팀을 선택하면 과거 문구를 확인할 수 있습니다.</p></div>';
@@ -196,7 +208,13 @@
         
         container.innerHTML = '<div class="loading">문구를 불러오는 중...</div>';
         
-        fetch(`/api/archive?team_id=${teamId}&sort_by=${sortBy}&limit=10`)
+        // 채널 필터링을 위한 URL 파라미터 추가
+        let url = `/api/archive?team_id=${teamId}&sort_by=${sortBy}&limit=10`;
+        if (channel) {
+            url += `&channel=${channel}`;
+        }
+        
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -224,7 +242,8 @@
         
         // 첫 번째 패스: 중복 제거하면서 최대 10개까지 채우기
         for (const copy of copies) {
-            const contentKey = `${copy.title || ''}|${copy.message || ''}`;
+            // 앱푸시의 경우 copy_id로 중복 제거, RCS의 경우 내용으로 중복 제거
+            const contentKey = copy.copy_id ? `id_${copy.copy_id}` : `${copy.title || ''}|${copy.message || ''}`;
             if (!seenContent.has(contentKey)) {
                 seenContent.add(contentKey);
                 finalCopies.push(copy);
@@ -239,7 +258,7 @@
         // 두 번째 패스: 10개가 안 되면 나머지 유니크한 문구로 채우기
         if (finalCopies.length < 10) {
             for (const copy of copies) {
-                const contentKey = `${copy.title || ''}|${copy.message || ''}`;
+                const contentKey = copy.copy_id ? `id_${copy.copy_id}` : `${copy.title || ''}|${copy.message || ''}`;
                 if (!seenContent.has(contentKey)) {
                     seenContent.add(contentKey);
                     finalCopies.push(copy);
@@ -279,13 +298,18 @@
             if (conversionRate > 0.1) performanceClass = 'performance-high';
             else if (conversionRate > 0.05) performanceClass = 'performance-medium';
             
+            // 채널에 따른 라벨 설정
+            const channel = document.getElementById('channel-selector').value;
+            const titleLabel = channel === 'RCS' ? '버튼' : '제목';
+            const messageLabel = channel === 'RCS' ? '메시지' : '내용';
+            
             return `
                 <div class="archive-item ${performanceClass}">
                     <div class="archive-header">
-                        <div class="archive-title">#${index + 1} ${copy.title || '제목 없음'}</div>
+                        <div class="archive-title">#${index + 1} ${titleLabel}: ${copy.title || '없음'}</div>
                         <div class="archive-date">${copy.send_date || 'N/A'}</div>
                     </div>
-                    <div class="archive-message">${copy.message || '내용 없음'}</div>
+                    <div class="archive-message"><strong>${messageLabel}:</strong> ${copy.message || '없음'}</div>
                     <div class="archive-meta">
                         <div class="meta-item-target">
                             <span class="meta-label">타겟</span>

@@ -48,7 +48,7 @@
         color: red;
     }
     .btn-generate {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #6d67a8 0%, #5a5480 100%);
         color: white;
         padding: 14px 32px;
         border: none;
@@ -75,7 +75,7 @@
         padding: 16px;
         margin-bottom: 12px;
         border-radius: 8px;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #6d67a8;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -95,8 +95,24 @@
         color: #555;
         line-height: 1.4;
     }
+    .rcs-copy {
+        flex: 1;
+    }
+    .rcs-button {
+        font-size: 15px;
+        color: #2c3e50;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    .rcs-message {
+        font-size: 14px;
+        color: #555;
+        line-height: 1.6;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
     .btn-copy {
-        background: #667eea;
+        background: #6d67a8;
         color: white;
         padding: 8px 16px;
         border: none;
@@ -107,7 +123,7 @@
     .loading {
         text-align: center;
         padding: 40px;
-        color: #667eea;
+        color: #6d67a8;
     }
 </style>
 {% endblock %}
@@ -180,10 +196,18 @@
         </div>
     </div>
     
-    <div class="form-group">
-        <label>필수 키워드 (Required Keywords)</label>
-        <input type="text" name="keywords" id="keywords" placeholder="예: 30% 할인, 2000원 쿠폰, 추석 (쉼표로 구분)">
-        <small class="form-help">문구에 반드시 포함되어야 할 키워드들을 쉼표로 구분하여 입력하세요.</small>
+    <div class="form-row">
+        <div class="form-group">
+            <label>할인 유형 (Discount Type)</label>
+            <input type="text" name="discount_type" id="discount_type" placeholder="예: 30%할인, 2000원 쿠폰, 특가전 ~50%">
+            <small class="form-help">할인 관련 키워드를 쉼표로 구분하여 입력하세요.</small>
+        </div>
+        
+        <div class="form-group">
+            <label>소구 포인트 (Appeal Point)</label>
+            <input type="text" name="appeal_point" id="appeal_point" placeholder="예: 카드할인+신규고객혜택, 무료배송, 한정수량">
+            <small class="form-help">고객에게 어필할 포인트를 쉼표로 구분하여 입력하세요.</small>
+        </div>
     </div>
     
     <div class="form-group">

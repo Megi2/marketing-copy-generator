@@ -19,7 +19,15 @@ def generate_copy():
             return jsonify({'error': '주제(topic)는 필수입니다'}), 400
         
         # 문구 생성
-        copies = logic.generate_marketing_copy(data)
+        result = logic.generate_marketing_copy(data)
+        
+        # 결과 구조 확인 (기존 호환성 유지)
+        if isinstance(result, dict):
+            copies = result['copies']
+            referenced_phrases = result.get('referenced_phrases', [])
+        else:
+            copies = result
+            referenced_phrases = []
         
         # 생성된 문구 DB 저장 (선택사항)
         team_id = data.get('team_id')
@@ -30,7 +38,8 @@ def generate_copy():
         return jsonify({
             'success': True,
             'copies': copies,
-            'count': len(copies)
+            'count': len(copies),
+            'referenced_phrases': referenced_phrases
         })
     
     except Exception as e:
@@ -58,11 +67,12 @@ def get_archive():
         team_id = request.args.get('team_id')
         sort_by = request.args.get('sort_by', 'conversion_rate')
         limit = request.args.get('limit', 50, type=int)
+        channel = request.args.get('channel')  # 채널 필터 추가
         
         if not team_id:
             return jsonify({'error': 'team_id는 필수입니다'}), 400
         
-        copies = logic.get_team_style(team_id, sort_by, limit)
+        copies = logic.get_team_style(team_id, sort_by, limit, channel)
         
         return jsonify({
             'success': True,
@@ -285,6 +295,45 @@ def upload_csv():
             'count': success_count,
             'errors': error_count,
             'message': f'{success_count}개 문구가 성공적으로 추가되었습니다.'
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/sync-vector-store', methods=['POST'])
+def sync_vector_store():
+    """벡터 저장소를 DB와 동기화"""
+    try:
+        from core.logic import MarketingLogic
+        logic = MarketingLogic()
+        
+        # 벡터 저장소 동기화
+        logic.vector_store.sync_from_database()
+        
+        # 통계 정보 반환
+        stats = logic.vector_store.get_collection_stats()
+        
+        return jsonify({
+            'success': True,
+            'message': '벡터 저장소 동기화가 완료되었습니다.',
+            'stats': stats
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/vector-store-stats', methods=['GET'])
+def get_vector_store_stats():
+    """벡터 저장소 통계 정보 조회"""
+    try:
+        from core.logic import MarketingLogic
+        logic = MarketingLogic()
+        
+        stats = logic.vector_store.get_collection_stats()
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
         })
     
     except Exception as e:
