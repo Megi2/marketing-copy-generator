@@ -97,13 +97,13 @@ def split_keywords(s: str):
     return out
 
 def parse_send_date(s: str) -> str:
-    """Return YYYYMMDD from strings like '25.08.01', '2025-08-01', '8/1', '20250801'"""
+    """Return YYYY-MM-DD from strings like '25.08.01', '2025-08-01', '8/1', '20250801'"""
     s = clean_str(s)
     if not s:
         return ""
-    # If already 8 digits
+    # If already 8 digits (YYYYMMDD format)
     if re.fullmatch(r"\d{8}", s):
-        return s
+        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
     # Common separators
     m = re.search(r"(\d{2,4})[.\-/](\d{1,2})[.\-/](\d{1,2})", s)
     if m:
@@ -111,12 +111,12 @@ def parse_send_date(s: str) -> str:
         y = int(y)
         if y < 100:
             y = 2000 + y  # 2-digit year -> 2000+YY
-        return f"{y:04d}{int(mo):02d}{int(d):02d}"
+        return f"{y:04d}-{int(mo):02d}-{int(d):02d}"
     # Month/Day (assume unknown year -> prefix 0000)
     m2 = re.search(r"(\d{1,2})[.\-/](\d{1,2})", s)
     if m2:
         mo, d = m2.groups()
-        return f"0000{int(mo):02d}{int(d):02d}"
+        return f"0000-{int(mo):02d}-{int(d):02d}"
     return ""
 
 def parse_send_time(s: str) -> str:

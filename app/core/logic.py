@@ -422,7 +422,10 @@ class MarketingLogic:
                     current_copy = {}
                     
                     # "1. " 같은 번호 제거
-                    content = line.split('.', 1)[1].strip()
+                    if '.' in line:
+                        content = line.split('.', 1)[1].strip()
+                    else:
+                        content = line.strip()
                     
                     # 버튼과 메시지 구분
                     if '버튼:' in content:

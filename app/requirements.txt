@@ -1,12 +1,21 @@
-flask==3.0.0
-flask-cors==4.0.0
+# Streamlit dependencies
+streamlit==1.28.1
+pandas==2.1.3
+
+# Core dependencies
 google-generativeai==0.3.1
 google-api-python-client==2.108.0
-apscheduler==3.10.4
 python-dotenv==1.0.0
 requests==2.31.0
 beautifulsoup4==4.12.2
-python-dotenv==1.0.0
 chromadb==0.4.22
 sentence-transformers==2.2.2
 numpy==1.24.3
+
+# Fix protobuf version conflict
+protobuf>=3.19.5,<5.0.0
+
+# Legacy Flask dependencies (for reference)
+# flask==3.0.0
+# flask-cors==4.0.0
+# apscheduler==3.10.4
