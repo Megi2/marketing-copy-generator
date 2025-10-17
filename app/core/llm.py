@@ -8,16 +8,22 @@ class LLMService:
     def __init__(self):
         self.model = genai.GenerativeModel('gemini-2.5-flash')
     
-    def generate_copy(self, prompt: str) -> str:
+    def generate_copy(self, prompt: str, temperature: float = 0.7) -> str:
         """
         Gemini API를 사용해 마케팅 문구 생성
         """
         try:
             print("=" * 80)
             print("LLM 문구 생성")
+            print(f"Temperature: {temperature}")
             print("=" * 80)
             print(prompt)
-            response = self.model.generate_content(prompt)
+            
+            # 안전한 기본 설정
+            response = self.model.generate_content(
+                prompt,
+                generation_config={"temperature": temperature}
+            )
             return response.text
         except Exception as e:
             print(f"❌ LLM 호출 오류: {e}")

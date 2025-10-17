@@ -139,8 +139,12 @@ class MarketingLogic:
         # 1. RAG를 통한 관련 문구 검색
         rag_context = ""
         
-        # 검색 쿼리 구성
-        search_query_parts = [topic]
+        # 검색 쿼리 구성 (키워드와 타겟으로 유사도 계산)
+        search_query_parts = []
+        
+        # 키워드 관련 요소들
+        if topic:
+            search_query_parts.append(topic)
         if discount_type:
             search_query_parts.append(discount_type)
         if appeal_point:
@@ -149,6 +153,10 @@ class MarketingLogic:
             search_query_parts.append(brand)
         if event_name:
             search_query_parts.append(event_name)
+        
+        # 타겟 관련 요소들
+        if target_audience:
+            search_query_parts.append(target_audience)
         
         search_query = " ".join(search_query_parts)
         
@@ -159,9 +167,10 @@ class MarketingLogic:
         except Exception as e:
             print(f"\n❌ 벡터 저장소 상태 확인 실패: {e}")
         
-        # 벡터 검색으로 관련 문구 찾기 (RCS 최적화 조건)
+        # 벡터 검색으로 관련 문구 찾기 (채널/팀 필터링 + 키워드/타겟 유사도)
         print(f"\n🔍 벡터 검색 시작 (쿼리: '{search_query}')")
-        print(f"📋 검색 조건: team_id={team_id}, channel={channel}, min_ctr=0.01, min_conversion_rate=0.005, min_similarity=0.6")
+        print(f"📋 필터링 조건: team_id={team_id}, channel={channel}")
+        print(f"📋 성과 기준: min_ctr=0.01, min_conversion_rate=0.005, min_similarity=0.6")
         
         try:
             similar_phrases = self.vector_store.search_similar_phrases(
@@ -254,11 +263,14 @@ class MarketingLogic:
         if channel == 'RCS':
             # 실제 참고 문구를 사용한 예시 생성
             example_format = ""
-            if unique_phrases:
+            if unique_phrases and len(unique_phrases) > 0:
                 for i, phrase in enumerate(unique_phrases[:3]):  # 상위 3개 사용
+                    # 안전한 딕셔너리 접근
+                    title = phrase.get('title', '버튼 텍스트')
+                    message = phrase.get('message', '메시지 내용')
                     example_format += f"""
-{i+1}. 버튼: {phrase['title']}
-메시지: {phrase['message']}
+{i+1}. 버튼: {title}
+메시지: {message}
 
 """
             else:
@@ -291,7 +303,6 @@ class MarketingLogic:
 ### 톤앤매너:
 {tone}{discount_context}{appeal_context}
 {rag_context}
-{trend_context}
 
 ### 참고 텍스트:
 {reference_text if reference_text else '없음'}
@@ -319,7 +330,6 @@ class MarketingLogic:
 타겟: {target_audience}
 톤: {tone}{discount_context}{appeal_context}
 {rag_context}
-{trend_context}
 
 각 문구는 반드시 다음 형식으로 출력하세요:
 1. 타이틀: [15-20자 제목]
@@ -330,20 +340,22 @@ class MarketingLogic:
 타이틀과 본문을 모두 포함해야 합니다.
 """
         
-        # 4. LLM 호출
-        result = self.llm.generate_copy(prompt)
+        # 4. LLM 호출 (Temperature 설정 가능)
+        temperature = params.get('temperature', 2.0)  # 기본값 0.6
+        result = self.llm.generate_copy(prompt, temperature=temperature)
         
         # 참고 문구 정보 저장 (API 응답용)
         referenced_phrases = []
-        if similar_phrases:
+        if similar_phrases and unique_phrases and len(unique_phrases) > 0:
             for phrase in unique_phrases[:3]:  # 상위 3개만
                 referenced_phrases.append({
-                    'title': phrase['title'],
-                    'message': phrase['message'],
-                    'similarity_score': phrase['similarity_score'],
-                    'ctr': phrase['ctr'],
-                    'conversion_rate': phrase['conversion_rate'],
-                    'team_id': phrase['team_id']
+                    'title': phrase.get('title', ''),
+                    'message': phrase.get('message', ''),
+                    'similarity_score': phrase.get('similarity_score', 0),
+                    'ctr': phrase.get('ctr', 0),
+                    'conversion_rate': phrase.get('conversion_rate', 0),
+                    'team_id': phrase.get('team_id', ''),
+                    'channel': phrase.get('channel', '')
                 })
         
         # 5. 결과 파싱
@@ -392,11 +404,12 @@ class MarketingLogic:
                         copy_text = line.split('.', 1)[1].strip()
                         copies.append({'message': copy_text})
         else:
-            # RCS 파싱: 개선된 버튼과 메시지 분리 처리
+            # RCS 파싱: 줄바꿈 보존 개선
             lines = result.split('\n')
             current_copy = {}
             
-            for line in lines:
+            for i, line in enumerate(lines):
+                original_line = line  # 원본 줄바꿈 보존
                 line = line.strip()
                 
                 # 번호가 있는 줄인지 확인
@@ -431,12 +444,13 @@ class MarketingLogic:
                     message_text = message_text.replace('**', '')
                     current_copy['message'] = message_text
                 
-                elif line and current_copy and 'message' in current_copy:
-                    # 메시지 내용의 연속으로 처리 (줄바꿈 유지)
-                    # 빈 줄이면 문단 구분을 위해 두 번의 줄바꿈 추가
+                elif current_copy and 'message' in current_copy:
+                    # 메시지 내용의 연속으로 처리 (줄바꿈 보존)
                     if line == '':
-                        current_copy['message'] += '\n\n'
+                        # 빈 줄이면 원본 줄바꿈 그대로 추가
+                        current_copy['message'] += original_line
                     else:
+                        # 내용이 있는 줄이면 줄바꿈과 함께 추가
                         current_copy['message'] += '\n' + line.replace('**', '')
             
             # 마지막 문구 저장
@@ -451,6 +465,20 @@ class MarketingLogic:
                         copy_text = line.split('.', 1)[1].strip()
                         copy_text = copy_text.replace('**', '')
                         copies.append({'message': copy_text})
+        
+        # RCS 메시지에 [롯데ON] 자동 추가 (안전한 버전)
+        try:
+            for copy in copies:
+                if isinstance(copy, dict) and 'message' in copy and channel == 'RCS':
+                    message = copy['message']
+                    if isinstance(message, str):
+                        # 이미 [롯데ON]으로 시작하지 않는 경우에만 추가
+                        if not message.strip().startswith('[롯데ON]'):
+                            copy['message'] = f"[롯데ON]\n{message}"
+        except Exception as e:
+            print(f"❌ [롯데ON] 추가 오류: {e}")
+            import traceback
+            print(f"상세 오류: {traceback.format_exc()}")
         
         return {
             'copies': copies[:count],

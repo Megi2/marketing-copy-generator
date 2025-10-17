@@ -30,60 +30,113 @@
             color: #666;
             margin-bottom: 30px;
         }
+        :root {
+            --nav-length: 4;
+            --nav-width: calc(100% / var(--nav-length));
+        }
         nav {
             margin-bottom: 30px;
             padding-bottom: 20px;
             border-bottom: 2px solid #f0f0f0;
             position: relative;
+            display: flex;
         }
         nav a {
             color: #6d67a8;
             text-decoration: none;
-            margin-right: 20px;
             font-weight: 500;
             transition: all 0.3s ease;
             position: relative;
             padding: 12px 20px;
             border-radius: 12px;
-            display: inline-block;
-            transform: translateY(0);
+            display: block;
+            width: var(--nav-width);
+            text-align: center;
         }
         nav a:hover {
             color: #5a5480;
             background-color: rgba(109, 103, 168, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(109, 103, 168, 0.2);
         }
-        nav a.active {
+        nav a.is-current {
             color: #6d67a8;
             background-color: rgba(109, 103, 168, 0.15);
             font-weight: 600;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(109, 103, 168, 0.25);
         }
-        nav a.active::after {
-            content: '';
+        .nav-underline {
             position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
+            left: 0;
+            bottom: -2px;
+            width: var(--nav-width);
             height: 4px;
             background: linear-gradient(135deg, #6d67a8 0%, #5a5480 100%);
             border-radius: 2px;
-            animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: all 0.3s ease-in-out;
         }
-        @keyframes slideIn {
-            from {
-                width: 0;
-                opacity: 0;
-                transform: translateX(-50%) scaleX(0);
+        .nav-underline.sliding-right {
+            animation: slideRightWithShrink 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .nav-underline.sliding-left {
+            animation: slideLeftWithShrink 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        @keyframes slideRightWithShrink {
+            0% {
+                transform: scaleX(1);
+                transform-origin: left center;
             }
-            to {
-                width: 40px;
-                opacity: 1;
-                transform: translateX(-50%) scaleX(1);
+            30% {
+                transform: scaleX(0.6);
+                transform-origin: left center;
             }
+            70% {
+                transform: scaleX(0.6);
+                transform-origin: right center;
+            }
+            100% {
+                transform: scaleX(1);
+                transform-origin: right center;
+            }
+        }
+        @keyframes slideLeftWithShrink {
+            0% {
+                transform: scaleX(1);
+                transform-origin: right center;
+            }
+            30% {
+                transform: scaleX(0.6);
+                transform-origin: right center;
+            }
+            70% {
+                transform: scaleX(0.6);
+                transform-origin: left center;
+            }
+            100% {
+                transform: scaleX(1);
+                transform-origin: left center;
+            }
+        }
+        nav a:nth-child(1).is-current ~ .nav-underline {
+            left: calc(var(--nav-width) * 0);
+        }
+        nav a:nth-child(2).is-current ~ .nav-underline {
+            left: calc(var(--nav-width) * 1);
+        }
+        nav a:nth-child(3).is-current ~ .nav-underline {
+            left: calc(var(--nav-width) * 2);
+        }
+        nav a:nth-child(4).is-current ~ .nav-underline {
+            left: calc(var(--nav-width) * 3);
+        }
+        nav a:nth-child(1):hover ~ .nav-underline {
+            left: calc(var(--nav-width) * 0);
+        }
+        nav a:nth-child(2):hover ~ .nav-underline {
+            left: calc(var(--nav-width) * 1);
+        }
+        nav a:nth-child(3):hover ~ .nav-underline {
+            left: calc(var(--nav-width) * 2);
+        }
+        nav a:nth-child(4):hover ~ .nav-underline {
+            left: calc(var(--nav-width) * 3);
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -92,18 +145,60 @@
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('nav a');
+            const nav = document.querySelector('nav');
+            const underline = document.querySelector('.nav-underline');
             
-            // 모든 링크에서 active 클래스 제거
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-            });
+            // 이전 페이지의 인덱스 가져오기
+            const previousIndex = parseInt(localStorage.getItem('previousNavIndex')) || 0;
             
-            // 현재 경로에 맞는 링크에 active 클래스 추가
-            navLinks.forEach(link => {
+            // 현재 페이지의 인덱스 찾기
+            let currentIndex = 0;
+            navLinks.forEach((link, index) => {
                 const linkPath = new URL(link.href).pathname;
                 if (linkPath === currentPath) {
-                    link.classList.add('active');
+                    currentIndex = index;
                 }
+            });
+            
+            // 이전 위치에서 현재 위치로 슬라이딩
+            if (previousIndex !== currentIndex) {
+                // 방향에 따라 다른 애니메이션 클래스 추가
+                if (currentIndex > previousIndex) {
+                    underline.classList.add('sliding-right');
+                } else {
+                    underline.classList.add('sliding-left');
+                }
+                
+                // 먼저 이전 위치에 인디케이터 배치
+                underline.style.left = `calc(var(--nav-width) * ${previousIndex})`;
+                underline.style.transition = 'none';
+                
+                // 다음 프레임에서 현재 위치로 이동
+                requestAnimationFrame(() => {
+                    underline.style.transition = 'all 0.3s ease-in-out';
+                    underline.style.left = `calc(var(--nav-width) * ${currentIndex})`;
+                });
+                
+                // 애니메이션 완료 후 클래스 제거
+                setTimeout(() => {
+                    underline.classList.remove('sliding-right', 'sliding-left');
+                }, 400);
+            }
+            
+            // 현재 페이지에 is-current 클래스 추가
+            navLinks.forEach(link => {
+                link.classList.remove('is-current');
+                const linkPath = new URL(link.href).pathname;
+                if (linkPath === currentPath) {
+                    link.classList.add('is-current');
+                }
+            });
+            
+            // 클릭 시 현재 인덱스 저장
+            navLinks.forEach((link, index) => {
+                link.addEventListener('click', function() {
+                    localStorage.setItem('previousNavIndex', currentIndex.toString());
+                });
             });
         });
     </script>
@@ -118,6 +213,7 @@
             <a href="/archive/phrases">📚 문구 아카이브</a>
             <a href="/archive/trends">📈 트렌드 아카이브</a>
             <a href="/upload">📤 CSV 업로드</a>
+            <div class="nav-underline"></div>
         </nav>
         
         {% block content %}{% endblock %}

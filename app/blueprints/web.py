@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request, jsonify
 
 web_bp = Blueprint('web', __name__)
 
@@ -26,3 +26,10 @@ def trends_archive():
 def upload():
     """CSV 업로드 페이지"""
     return render_template('upload.html')
+
+@web_bp.route('/debug-log', methods=['POST'])
+def debug_log():
+    """디버깅 로그를 서버 터미널에 출력"""
+    data = request.get_json()
+    print(f"[DEBUG] {data.get('message', '')}")
+    return jsonify({'success': True})

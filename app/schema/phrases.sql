@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS marketing_copies (
     target_audience TEXT,
     tone TEXT,
     reference_text TEXT,
-    send_date TEXT, -- 발송 날짜 (YYYYMMDD 형식)
+    send_date DATE, -- 발송 날짜
     impression_count INTEGER DEFAULT 0,
     click_count INTEGER DEFAULT 0,
     ctr REAL DEFAULT 0.0,
@@ -30,4 +30,4 @@ CREATE INDEX IF NOT EXISTS idx_marketing_copies_team_id ON marketing_copies(team
 CREATE INDEX IF NOT EXISTS idx_marketing_copies_channel ON marketing_copies(channel);
 CREATE INDEX IF NOT EXISTS idx_marketing_copies_ctr ON marketing_copies(ctr);
 CREATE INDEX IF NOT EXISTS idx_marketing_copies_conversion_rate ON marketing_copies(conversion_rate);
-CREATE INDEX IF NOT EXISTS idx_marketing_copies_created_at ON marketing_copies(created_at);
+CREATE INDEX IF NOT EXISTS idx_marketing_copies_send_date ON marketing_copies(send_date);

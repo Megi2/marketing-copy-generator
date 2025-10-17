@@ -102,12 +102,13 @@ function displayResults(copies) {
             // RCS인 경우 버튼과 메시지 분리 표시
             const button = copy.button || '';
             const message = (copy.message || copy).replace(/\\n/g, '\n'); // 줄바꿈 변환
+            
             const messageHtml = message.replace(/\n/g, '<br>'); // HTML 줄바꿈으로 변환
             
             div.innerHTML = `
                 <div class="rcs-copy">
                     <div class="rcs-button">${index + 1}. <strong>버튼:</strong> ${button}</div>
-                    <div class="rcs-message"><strong>메시지:</strong> ${messageHtml}</div>
+                    <div class="rcs-message"><strong>메시지:</strong><br>${messageHtml}</div>
                 </div>
                 <button class="btn-copy" onclick="copyToClipboard('버튼: ${button}\\n메시지: ${message.replace(/\n/g, '\\n')}')">
                     📋 복사
