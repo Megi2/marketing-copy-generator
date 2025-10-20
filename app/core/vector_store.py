@@ -21,6 +21,35 @@ class VectorStore:
             metadata={"hnsw:space": "cosine"}
         )
     
+    def _replace_placeholders(self, text: str) -> str:
+        """플레이스홀더를 실제 키워드로 치환"""
+        if not text:
+            return text
+        
+        # 플레이스홀더 치환 규칙
+        replacements = {
+            '${키워드}': '상품',
+            '{키워드}': '상품',
+            '{브랜드명}': '브랜드',
+            '${브랜드명}': '브랜드',
+            '{상품명}': '상품',
+            '${상품명}': '상품',
+            '{할인율}': '30%',
+            '${할인율}': '30%',
+            '{금액}': '10만원',
+            '${금액}': '10만원',
+            '{쿠폰명}': '특가쿠폰',
+            '${쿠폰명}': '특가쿠폰',
+            '{이벤트명}': '특가이벤트',
+            '${이벤트명}': '특가이벤트'
+        }
+        
+        result = text
+        for placeholder, replacement in replacements.items():
+            result = result.replace(placeholder, replacement)
+        
+        return result
+    
     def add_phrases(self, phrases: List[Dict[str, Any]]) -> None:
         """문구들을 벡터 저장소에 추가"""
         if not phrases:
@@ -32,10 +61,15 @@ class VectorStore:
         ids = []
         
         for phrase in phrases:
-            # 키워드와 타겟으로 유사도 계산용 텍스트 생성
-            keywords = phrase.get('keywords', '')
-            target_audience = phrase.get('target_audience', '')
-            text = f"{keywords} {target_audience}".strip()
+            # 문구 내용으로 유사도 계산용 텍스트 생성
+            title = phrase.get('title', '')
+            message = phrase.get('message', '')
+            
+            # 플레이스홀더 치환
+            title = self._replace_placeholders(title)
+            message = self._replace_placeholders(message)
+            
+            text = f"{title} {message}".strip()
             
             if not text:
                 continue
@@ -45,7 +79,6 @@ class VectorStore:
                 'copy_id': phrase.get('copy_id') or '',
                 'team_id': phrase.get('team_id') or '',
                 'channel': phrase.get('channel') or '',
-                'keywords': phrase.get('keywords') or '',
                 'target_audience': phrase.get('target_audience') or '',
                 'tone': phrase.get('tone') or '',
                 'ctr': float(phrase.get('ctr', 0)) if phrase.get('ctr') is not None else 0.0,
@@ -82,7 +115,19 @@ class VectorStore:
         conditions = []
         
         if team_id:
-            conditions.append({'team_id': int(team_id)})
+            # team_id가 tuple인 경우 첫 번째 요소 사용, 그 외에는 직접 변환
+            if isinstance(team_id, tuple):
+                team_id_value = team_id[0] if team_id else None
+            else:
+                team_id_value = team_id
+            
+            if team_id_value:
+                try:
+                    conditions.append({'team_id': int(team_id_value)})
+                except (ValueError, TypeError) as e:
+                    print(f"⚠️ team_id 변환 실패: {team_id_value} -> {e}")
+                    # 변환 실패 시 해당 필터 무시
+                    pass
         
         if channel:
             conditions.append({'channel': channel})
@@ -133,9 +178,9 @@ class VectorStore:
                         'message': metadata.get('message', ''),
                         'team_id': metadata.get('team_id', ''),
                         'channel': metadata.get('channel', ''),
-                        'keywords': metadata.get('keywords', ''),
                         'target_audience': metadata.get('target_audience', ''),
                         'tone': metadata.get('tone', ''),
+                        'send_date': metadata.get('send_date', ''),
                         'ctr': metadata.get('ctr', 0),
                         'conversion_rate': metadata.get('conversion_rate', 0),
                         'impression_count': metadata.get('impression_count', 0),
@@ -171,10 +216,10 @@ class VectorStore:
                 team_id,
                 channel,
                 content_data,
-                keywords,
                 target_audience,
                 tone,
                 send_date,
+                send_time,
                 ctr,
                 conversion_rate,
                 impression_count,
@@ -208,7 +253,6 @@ class VectorStore:
                 'channel': row['channel'],
                 'title': title,
                 'message': message,
-                'keywords': row['keywords'],
                 'target_audience': row['target_audience'],
                 'tone': row['tone'],
                 'send_date': row['send_date'],
@@ -222,6 +266,101 @@ class VectorStore:
         # 벡터 저장소에 추가
         self.add_phrases(phrases)
         print(f"✅ 총 {len(phrases)}개 문구 동기화 완료!")
+    
+    def get_phrases_by_date_range(self, start_date: str = None, end_date: str = None, 
+                                 channel: str = None, limit: int = 1000) -> List[Dict[str, Any]]:
+        """날짜 범위별로 문구 검색"""
+        try:
+            where_conditions = {}
+            
+            if channel:
+                where_conditions['channel'] = channel
+            
+            if start_date or end_date:
+                date_conditions = {}
+                if start_date:
+                    date_conditions['$gte'] = start_date
+                if end_date:
+                    date_conditions['$lt'] = end_date
+                where_conditions['send_date'] = date_conditions
+            
+            # ChromaDB의 where 조건이 복합 조건을 지원하지 않으므로 단계별로 검색
+            if len(where_conditions) > 1:
+                # 먼저 채널로 필터링
+                if 'channel' in where_conditions:
+                    results = self.collection.get(
+                        where={'channel': channel},
+                        limit=limit
+                    )
+                else:
+                    results = self.collection.get(limit=limit)
+                
+                # 날짜 조건으로 추가 필터링
+                filtered_phrases = []
+                for i, metadata in enumerate(results['metadatas']):
+                    send_date = metadata.get('send_date', '')
+                    
+                    # 날짜 조건 확인
+                    date_match = True
+                    if start_date and send_date < start_date:
+                        date_match = False
+                    if end_date and send_date >= end_date:
+                        date_match = False
+                    
+                    if date_match:
+                        filtered_phrases.append({
+                            'copy_id': metadata.get('copy_id', ''),
+                            'team_id': metadata.get('team_id', ''),
+                            'channel': metadata.get('channel', ''),
+                            'title': metadata.get('title', ''),
+                            'message': metadata.get('message', ''),
+                            'target_audience': metadata.get('target_audience', ''),
+                            'tone': metadata.get('tone', ''),
+                            'send_date': metadata.get('send_date', ''),
+                            'ctr': metadata.get('ctr', 0),
+                            'conversion_rate': metadata.get('conversion_rate', 0),
+                            'impression_count': metadata.get('impression_count', 0),
+                            'click_count': metadata.get('click_count', 0),
+                            'conversion_count': metadata.get('conversion_count', 0)
+                        })
+                
+                return filtered_phrases
+            else:
+                # 단일 조건인 경우
+                results = self.collection.get(
+                    where=where_conditions if where_conditions else None,
+                    limit=limit
+                )
+                
+                phrases = []
+                for i, metadata in enumerate(results['metadatas']):
+                    phrases.append({
+                        'copy_id': metadata.get('copy_id', ''),
+                        'team_id': metadata.get('team_id', ''),
+                        'channel': metadata.get('channel', ''),
+                        'title': metadata.get('title', ''),
+                        'message': metadata.get('message', ''),
+                        'target_audience': metadata.get('target_audience', ''),
+                        'tone': metadata.get('tone', ''),
+                        'send_date': metadata.get('send_date', ''),
+                        'ctr': metadata.get('ctr', 0),
+                        'conversion_rate': metadata.get('conversion_rate', 0),
+                        'impression_count': metadata.get('impression_count', 0),
+                        'click_count': metadata.get('click_count', 0),
+                        'conversion_count': metadata.get('conversion_count', 0)
+                    })
+                
+                return phrases
+            
+        except Exception as e:
+            print(f"날짜 범위 검색 중 오류: {e}")
+            return []
+    
+    def recreate_vector_store(self) -> None:
+        """벡터 스토어를 완전히 재생성"""
+        print("🔄 벡터 스토어 재생성 중...")
+        self.sync_from_database()
+        print("✅ 벡터 스토어 재생성 완료!")
     
     def get_collection_stats(self) -> Dict[str, Any]:
         """컬렉션 통계 정보 반환"""

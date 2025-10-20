@@ -35,7 +35,6 @@ class MarketingLogic:
             SELECT 
                 copy_id,
                 content_data, 
-                keywords,
                 target_audience, 
                 tone,
                 send_date,
@@ -65,9 +64,9 @@ class MarketingLogic:
                 title = content_data.get('button', '')
                 message = content_data.get('message', '')
                 
-                # content_data가 비어있으면 keywords나 target_audience 사용
+                # content_data가 비어있으면 target_audience 사용
                 if not title and not message:
-                    title = row['keywords'] or '버튼 텍스트 없음'
+                    title = '버튼 텍스트 없음'
                     message = row['target_audience'] or '메시지 내용 없음'
             else:
                 # APP_PUSH의 경우 title과 message 사용
@@ -78,7 +77,6 @@ class MarketingLogic:
                 'copy_id': row['copy_id'],
                 'title': title,
                 'message': message,
-                'keywords': row['keywords'],
                 'target_audience': row['target_audience'],
                 'tone': row['tone'],
                 'send_date': row['send_date'],
@@ -98,10 +96,9 @@ class MarketingLogic:
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT keyword, category, mention_count, trend_score
+            SELECT keyword, category, date
             FROM trends
-            WHERE is_valid = 1
-            ORDER BY collected_at DESC, trend_score DESC
+            ORDER BY date DESC, id DESC
             LIMIT ?
         """, (limit,))
         
@@ -115,44 +112,50 @@ class MarketingLogic:
         마케팅 문구 생성 (계획서의 핵심 기능)
         
         params: {
-            'topic': '필수',
-            'team_id': '선택',
+            'event_name': '행사명',
+            'brand': '브랜드',
+            'channel': '채널',
+            'team_id': '팀ID',
             'target_audience': '선택',
             'reference_text': '선택',
             'tone': '선택',
             'count': 5 (기본값)
         }
         """
-        topic = params.get('topic')
-        team_id = params.get('team_id')
+        event_name = params.get('event_name')
+        brand = params.get('brand')
+        channel = params.get('channel')
+        team_id_raw = params.get('team_id')
+        
+        # team_id가 tuple인 경우 첫 번째 요소 사용
+        if isinstance(team_id_raw, tuple):
+            team_id = team_id_raw[0] if team_id_raw else None
+        else:
+            team_id = team_id_raw
+            
         target_audience = params.get('target_audience', '일반 대중')
         tone = params.get('tone', '전문적이고 친근한')
         count = params.get('count', 5)
         reference_text = params.get('reference_text', '')
         discount_type = params.get('discount_type', '')
         appeal_point = params.get('appeal_point', '')
-        brand = params.get('brand', '')
-        event_name = params.get('event_name', '')
-        channel = params.get('channel', 'RCS')
         use_emoji = params.get('use_emoji', 'true').lower() == 'true'
         
         # 1. RAG를 통한 관련 문구 검색
         rag_context = ""
         
-        # 검색 쿼리 구성 (키워드와 타겟으로 유사도 계산)
+        # 검색 쿼리 구성 (문구 생성에 필요한 모든 요소로 유사도 계산)
         search_query_parts = []
         
-        # 키워드 관련 요소들
-        if topic:
-            search_query_parts.append(topic)
+        # 문구 생성 관련 요소들
+        if event_name:
+            search_query_parts.append(event_name)
+        if brand:
+            search_query_parts.append(brand)
         if discount_type:
             search_query_parts.append(discount_type)
         if appeal_point:
             search_query_parts.append(appeal_point)
-        if brand:
-            search_query_parts.append(brand)
-        if event_name:
-            search_query_parts.append(event_name)
         
         # 타겟 관련 요소들
         if target_audience:
@@ -167,7 +170,7 @@ class MarketingLogic:
         except Exception as e:
             print(f"\n❌ 벡터 저장소 상태 확인 실패: {e}")
         
-        # 벡터 검색으로 관련 문구 찾기 (채널/팀 필터링 + 키워드/타겟 유사도)
+        # 벡터 검색으로 관련 문구 찾기 (채널/팀 필터링 + 문구 내용 유사도)
         print(f"\n🔍 벡터 검색 시작 (쿼리: '{search_query}')")
         print(f"📋 필터링 조건: team_id={team_id}, channel={channel}")
         print(f"📋 성과 기준: min_ctr=0.01, min_conversion_rate=0.005, min_similarity=0.6")
@@ -246,13 +249,6 @@ class MarketingLogic:
         if appeal_point:
             appeal_context = f"\n\n### 소구 포인트:\n{appeal_point}\n(고객에게 어필할 핵심 포인트를 강조해주세요)"
         
-        brand_context = ""
-        if brand:
-            brand_context = f"\n\n### 브랜드:\n{brand}"
-            
-        event_context = ""
-        if event_name:
-            event_context = f"\n\n### 행사명:\n{event_name}"
         
         emoji_instruction = ""
         if use_emoji:
@@ -294,8 +290,11 @@ class MarketingLogic:
             prompt = f"""
 당신은 전문 마케팅 카피라이터입니다. RCS 메시지용 마케팅 문구를 {count}개 생성해주세요.
 
-### 주제:
-{topic}{brand_context}{event_context}
+### 행사명:
+{event_name if event_name else '일반 행사'}
+
+### 브랜드:
+{brand if brand else '롯데ON'}
 
 ### 타겟 고객:
 {target_audience}
@@ -323,21 +322,63 @@ class MarketingLogic:
 
 """
         else:  # APP_PUSH
-            prompt = f"""
-앱푸시 마케팅 문구를 {count}개 생성해주세요.
+            # 실제 참고 문구를 사용한 예시 생성
+            print(f"\n🔍 APP_PUSH 프롬프트 생성 - unique_phrases: {len(unique_phrases) if unique_phrases else 0}개")
+            example_format = ""
+            if unique_phrases and len(unique_phrases) > 0:
+                print("✅ 실제 참고 문구 사용")
+                for i, phrase in enumerate(unique_phrases[:3]):  # 상위 3개 사용
+                    # 안전한 딕셔너리 접근
+                    title = phrase.get('title', '제목')
+                    message = phrase.get('message', '내용')
+                    example_format += f"""
+{i+1}. 타이틀: {title}
+본문: (광고) {message}
 
-주제: {topic}{brand_context}{event_context}
-타겟: {target_audience}
-톤: {tone}{discount_context}{appeal_context}
+"""
+            else:
+                print("⚠️ 디폴트 예시 사용")
+                example_format = """
+1. 타이틀: 롯데ON 뷰티 세일!
+본문: (광고) 신규고객 30% 할인 혜택
+
+2. 타이틀: 봄신상 뷰티 특가전
+본문: (광고) 최대 50% 할인에 추가 혜택까지
+
+"""
+
+            prompt = f"""
+당신은 전문 마케팅 카피라이터입니다. 앱푸시 마케팅 문구를 {count}개 생성해주세요.
+
+### 행사명:
+{event_name if event_name else '일반 행사'}
+
+### 브랜드:
+{brand if brand else '롯데ON'}
+
+### 타겟 고객:
+{target_audience}
+
+### 톤앤매너:
+{tone}{discount_context}{appeal_context}
 {rag_context}
 
-각 문구는 반드시 다음 형식으로 출력하세요:
-1. 타이틀: [15-20자 제목]
-본문: (광고) [40자 이내 내용]{emoji_instruction}
-2. 타이틀: [15-20자 제목]
-본문: (광고) [40자 이내 내용]{emoji_instruction}
+### 참고 텍스트:
+{reference_text if reference_text else '없음'}
 
-타이틀과 본문을 모두 포함해야 합니다.
+### 앱푸시 요구사항:
+1. 타이틀은 15-20자 이내로 간결하고 매력적인 문구 작성
+2. 본문은 40자 이내로 작성하며 할인 혜택을 강조
+3. 센스있는 후킹 문구로 고객의 관심을 끌어야 함
+4. 이모지를 적절히 사용하여 시각적 효과를 높이세요(이모지를 사용하는 경우 브랜드 양옆에 동일한 이모지를 넣어 강조)
+5. 타겟 고객의 감성을 자극하는 표현 사용
+6. 최신 트렌드를 자연스럽게 반영
+
+### 출력 형식 (정확히 이 형식을 따라주세요):
+{example_format}
+위와 같은 형식으로 반드시 타이틀과 본문을 모두 포함하여 출력하세요.
+본문에는 반드시 "(광고)"를 포함하고, 할인 혜택을 강조하세요.
+
 """
         
         # 4. LLM 호출 (Temperature 설정 가능)
@@ -497,7 +538,6 @@ class MarketingLogic:
             'copy_text': copy_text,
             'title': params.get('title', copy_text),
             'message': params.get('message', copy_text),
-            'keywords': params.get('keywords'),
             'target_audience': params.get('target_audience'),
             'tone': params.get('tone'),
             'reference_text': params.get('reference_text'),
@@ -529,7 +569,6 @@ class MarketingLogic:
             'message': str (optional, copy_text와 동일시),
             
             # 공통 필드:
-            'keywords': str (optional),
             'target_audience': str (optional),
             'tone': str (optional),
             'reference_text': str (optional),
@@ -562,15 +601,14 @@ class MarketingLogic:
             # 데이터 삽입
             cursor.execute("""
                 INSERT INTO marketing_copies 
-                (team_id, channel, content_data, keywords, target_audience, tone, 
+                (team_id, channel, content_data, target_audience, tone, 
                  reference_text, send_date, impression_count, click_count, ctr, conversion_count, 
                  conversion_rate, trend_keywords, is_ai_generated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 copy_data.get('team_id'),
                 copy_data.get('channel'),
                 copy_data.get('content_data'),
-                copy_data.get('keywords'),
                 copy_data.get('target_audience'),
                 copy_data.get('tone'),
                 copy_data.get('reference_text'),

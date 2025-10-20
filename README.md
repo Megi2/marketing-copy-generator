@@ -8,7 +8,7 @@
 - **문구 아카이브**: 팀별 성과 좋은 문구 조회 및 분석
 - **트렌드 아카이브**: 최신 마케팅 트렌드 키워드 확인
 - **CSV 업로드**: 기존 마케팅 데이터 업로드 및 관리
-- **RAG 검색**: 벡터 검색을 통한 유사 문구 참조
+- **RAG 검색**: 벡터 검색을 통한 유사 문구 참조 (문구 기반 유사도 계산)
 
 ## 프로젝트 구조
 
@@ -26,6 +26,8 @@ marketing-copy-generator/
 │  │  └─ vector_store.py     # 벡터 저장소 관리
 │  ├─ data/                   # 데이터베이스 파일
 │  ├─ schema/                 # DB 스키마
+│  ├─ migrate_database.py     # DB 마이그레이션 스크립트
+│  ├─ recreate_vector_store.py # 벡터 저장소 재구성 스크립트
 │  └─ requirements.txt        # 의존성 목록
 ├─ flask_backup/              # Flask 버전 백업
 └─ run_streamlit.sh          # 실행 스크립트
@@ -57,7 +59,21 @@ GOOGLE_SEARCH_ENGINE_ID=your-engine-id
 python -c "from app.db import init_databases; init_databases()"
 ```
 
-### 5. Streamlit 앱 실행
+### 5. 데이터베이스 마이그레이션 (기존 사용자만)
+기존 DB에서 keywords 컬럼을 제거하려면:
+```bash
+cd app
+python migrate_database.py
+```
+
+### 6. 벡터 저장소 재구성 (기존 사용자만)
+문구 기반 검색으로 변경하려면:
+```bash
+cd app
+python recreate_vector_store.py
+```
+
+### 7. Streamlit 앱 실행
 
 #### 방법 1: 실행 스크립트 사용
 ```bash
@@ -70,5 +86,11 @@ streamlit run streamlit_app.py
 ```
 
 서버 실행 후 브라우저에서 `http://localhost:8501` 접속
+
+## 주요 변경사항 (v2.0)
+
+- **문구 기반 검색**: 키워드 기반에서 문구 내용 기반 유사도 검색으로 변경
+- **자동화 개선**: 키워드 추출 과정 제거로 완전 자동화 가능
+- **정확도 향상**: 문구 전체의 의미적 유사도를 고려한 더 정확한 검색
 
 

@@ -1,6 +1,12 @@
 import sqlite3
-from config import Config
 import os
+import sys
+
+# 현재 디렉토리를 Python 경로에 추가
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+from config import Config
 
 def get_trends_db():
     """트렌드 DB 연결"""
@@ -21,14 +27,14 @@ def init_databases():
     
     # trends.db 초기화
     conn_trends = get_trends_db()
-    with open('schema/trends.sql', 'r', encoding='utf-8') as f:
+    with open('app/schema/trends.sql', 'r', encoding='utf-8') as f:
         conn_trends.executescript(f.read())
     conn_trends.commit()
     conn_trends.close()
     
     # marketing_phrases.db 초기화
     conn_phrases = get_phrases_db()
-    with open('schema/phrases.sql', 'r', encoding='utf-8') as f:
+    with open('app/schema/phrases.sql', 'r', encoding='utf-8') as f:
         conn_phrases.executescript(f.read())
     conn_phrases.commit()
     conn_phrases.close()

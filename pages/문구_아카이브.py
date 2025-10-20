@@ -39,8 +39,8 @@ st.markdown("""
     
     .archive-item {
         background: #f8f9fa;
-        padding: 20px;
-        margin-bottom: 15px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
         border-radius: 8px;
         border-left: 4px solid #764ba2;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -56,13 +56,13 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 0.4rem;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 0.4rem;
     }
     
     .archive-title {
-        font-size: 18px;
+        font-size: 1.4rem;
         font-weight: bold;
         color: #333;
         flex: 1;
@@ -72,19 +72,19 @@ st.markdown("""
     }
     
     .archive-date {
-        font-size: 14px;
+        font-size: 1rem;
         color: #666;
         background: #f0f0f0;
-        padding: 4px 8px;
-        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
         white-space: nowrap;
         flex-shrink: 0;
     }
     
     .archive-message {
-        font-size: 16px;
+        font-size: 1.2rem;
         color: #555;
-        margin-bottom: 12px;
+        margin-bottom: 0.5rem;
         line-height: 1.6;
         word-wrap: break-word;
         word-break: break-word;
@@ -94,58 +94,72 @@ st.markdown("""
     }
     
     .archive-meta {
-        display: grid;
-        grid-template-columns: 1fr auto auto auto auto auto;
-        gap: 10px;
-        font-size: 13px;
-        align-items: start;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        font-size: 1rem;
+        align-items: stretch;
         width: 100%;
         box-sizing: border-box;
     }
     
-    .meta-item-target {
-        grid-column: 1;
-        background: white;
-        padding: 8px 12px;
-        border-radius: 5px;
-        border: 1px solid #e9ecef;
+    .meta-target-section {
+        background: transparent;
+        color: #333;
+        padding: 0.15rem 0.25rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 1.1rem;
         word-break: break-word;
-        min-width: 0;
+        border: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
+    
+    .meta-stats-section {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.4rem;
+    }
+    
     
     .meta-item {
-        background: white;
-        padding: 8px 12px;
-        border-radius: 5px;
-        border: 1px solid #e9ecef;
-        min-width: 80px;
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 0.15rem 0.25rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 1.1rem;
+        min-width: 30px;
         text-align: center;
         flex-shrink: 0;
+        border: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
-    .meta-label {
-        font-weight: bold;
-        color: #495057;
-        display: block;
-        margin-bottom: 2px;
+    .meta-item .meta-label,
+    .meta-item .meta-value {
+        color: #1976d2;
+        font-size: 1.1rem;
     }
     
-    .meta-value {
-        color: #007bff;
-        font-weight: bold;
+    .meta-target-section .meta-label {
+        font-weight: 500;
+        color: #333;
+        font-size: 1.1rem;
+        margin-right: 0.5rem;
     }
     
-    .performance-high {
-        border-left-color: #28a745;
+    .meta-target-section .meta-value {
+        color: #333;
+        font-weight: 500;
+        font-size: 1.1rem;
+        display: inline;
     }
     
-    .performance-medium {
-        border-left-color: #ffc107;
-    }
-    
-    .performance-low {
-        border-left-color: #dc3545;
-    }
     
     .filter-container {
         background: #f8f9fa;
@@ -220,14 +234,14 @@ st.markdown("""
 # 메인 헤더
 st.markdown("""
 <div class="main-header">
-    <h1>📚 문구 아카이브</h1>
+    <h1>문구 아카이브</h1>
     <p>팀별 성과 좋은 마케팅 문구를 확인하고 참고하세요</p>
 </div>
 """, unsafe_allow_html=True)
 
 # 필터 섹션
 st.markdown('<div class="filter-container">', unsafe_allow_html=True)
-st.subheader("🔍 검색 필터")
+st.subheader("검색 필터")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -299,7 +313,7 @@ if st.button("🔍 문구 검색", use_container_width=True):
     if not team_id:
         st.warning("⚠️ 팀을 선택해주세요.")
     else:
-        with st.spinner("📊 문구를 불러오는 중..."):
+        with st.spinner("문구를 불러오는 중..."):
             try:
                 logic = MarketingLogic()
                 
@@ -332,55 +346,49 @@ if st.button("🔍 문구 검색", use_container_width=True):
                     # 정렬 제목 표시
                     st.markdown(f'''
                     <div class="sort-title">
-                        <h3>📊 {sort_title}</h3>
+                        <h3>{sort_title}</h3>
                     </div>
                     ''', unsafe_allow_html=True)
                     
                     for i, copy in enumerate(copies):
-                        # 성과에 따른 색상 분류
-                        conversion_rate = copy.get('conversion_rate', 0)
-                        performance_class = 'performance-low'
-                        if conversion_rate > 0.1:
-                            performance_class = 'performance-high'
-                        elif conversion_rate > 0.05:
-                            performance_class = 'performance-medium'
-                        
                         # 채널에 따른 라벨 설정
                         title_label = '제목' if channel_filter == 'APP_PUSH' else '버튼'
                         message_label = '내용' if channel_filter == 'APP_PUSH' else '메시지'
                         
                         # HTML 구조를 Flask 버전과 유사하게 구성
                         archive_html = f'''
-                        <div class="archive-item {performance_class}">
+                        <div class="archive-item">
                             <div class="archive-header">
                                 <div class="archive-title">#{i+1} {title_label}: {copy.get('title', copy.get('button', '없음'))}</div>
                                 <div class="archive-date">{copy.get('send_date', 'N/A')}</div>
                             </div>
                             <div class="archive-message"><strong>{message_label}:</strong> {copy.get('message', '없음')}</div>
                             <div class="archive-meta">
-                                <div class="meta-item-target">
+                                <div class="meta-target-section">
                                     <span class="meta-label">타겟</span>
                                     <span class="meta-value">{copy.get('target_audience', 'N/A')}</span>
                                 </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">전환율</span>
-                                    <span class="meta-value">{(conversion_rate * 100):.1f}%</span>
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">CTR</span>
-                                    <span class="meta-value">{((copy.get('ctr', 0)) * 100):.1f}%</span>
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">노출수</span>
-                                    <span class="meta-value">{(copy.get('impression_count', 0)):,}</span>
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">클릭수</span>
-                                    <span class="meta-value">{(copy.get('click_count', 0)):,}</span>
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">전환수</span>
-                                    <span class="meta-value">{(copy.get('conversion_count', 0)):,}</span>
+                                <div class="meta-stats-section">
+                                    <div class="meta-item">
+                                        <span class="meta-label">전환율</span>
+                                        <span class="meta-value">{((copy.get('conversion_rate', 0)) * 100):.1f}%</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">CTR</span>
+                                        <span class="meta-value">{((copy.get('ctr', 0)) * 100):.1f}%</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">노출수</span>
+                                        <span class="meta-value">{(copy.get('impression_count', 0)):,}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">클릭수</span>
+                                        <span class="meta-value">{(copy.get('click_count', 0)):,}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">전환수</span>
+                                        <span class="meta-value">{(copy.get('conversion_count', 0)):,}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS marketing_copies (
     team_id INTEGER,
     channel TEXT NOT NULL CHECK(channel IN ('APP_PUSH', 'RCS')),
     content_data TEXT NOT NULL, -- JSON 형태로 저장
-    keywords TEXT,
     target_audience TEXT,
     tone TEXT,
     reference_text TEXT,
     send_date DATE, -- 발송 날짜
+    send_time TEXT, -- 발송 시간
     impression_count INTEGER DEFAULT 0,
     click_count INTEGER DEFAULT 0,
     ctr REAL DEFAULT 0.0,

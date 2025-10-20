@@ -70,8 +70,18 @@ def main():
 
     # 1) 원본: 4~841행, E~V열
     df_all = read_no_header(args.original)
-    df = df_all.iloc[3:841, 4:22].copy()  # 1-based 4..841 → iloc 3..840, cols E..V → 4..21
+    df = df_all.iloc[3:512, 4:22].copy()  # 1-based 4..841 → iloc 3..840, cols E..V → 4..21
     df.columns = EXPECTED_COLS
+    
+    # null 값이 있는 행 필터링 (중요한 컬럼들 체크)
+    important_cols = ["발송일자", "팀", "메세지(제목)", "메세지(내용)", "발송통수(성공)", "오픈수"]
+    print(f"필터링 전 원본 데이터: {len(df)}개 레코드")
+    
+    # 중요 컬럼들 중 하나라도 null이면 제외
+    df_filtered = df.dropna(subset=important_cols)
+    print(f"null 값 필터링 후: {len(df_filtered)}개 레코드")
+    
+    df = df_filtered
 
     # 2) 메시지-키워드: 첫 두 컬럼 사용
     mk = read_no_header(args.mk).iloc[:, :2].copy()

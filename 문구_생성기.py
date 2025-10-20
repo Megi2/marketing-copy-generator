@@ -306,7 +306,7 @@ function copyToClipboard(elementId) {
         textArea.select();
         textArea.setSelectionRange(0, 99999);
         document.execCommand('copy');
-        alert('📋 클립보드에 복사되었습니다!');
+        alert('클립보드에 복사되었습니다!');
     } else {
         alert('복사할 텍스트를 찾을 수 없습니다.');
     }
@@ -317,148 +317,146 @@ function copyToClipboard(elementId) {
 # 메인 헤더
 st.markdown("""
 <div class="main-header">
-    <h1>📝 마케팅 문구 생성 AI</h1>
+    <h1>마케팅 문구 생성 AI</h1>
     <p>성과가 좋았던 문구를 반영하는 스마트한 카피라이팅</p>
 </div>
 """, unsafe_allow_html=True)
 
 # 문구 생성 폼
-with st.container():
-    st.markdown('<div class="form-container">', unsafe_allow_html=True)
+
+
+with st.form("generate_form"):
+    st.subheader("문구 생성 설정")
     
-    with st.form("generate_form"):
-        st.subheader("🎯 문구 생성 설정")
+    # 기본 정보 - 새로운 레이아웃: 0,0 행사명, 0,1 브랜드, 1,0 채널, 1,1 팀ID
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        event_name = st.text_input(
+            "행사명 (Event Name) *", 
+            placeholder="예: 봄 신상품 세일",
+            help="생성할 마케팅 문구의 행사명을 입력하세요"
+        )
         
-        # 기본 정보
-        col1, col2 = st.columns(2)
+        channel = st.selectbox(
+            "채널 (Channel) *",
+            ["RCS", "APP_PUSH"],
+            help="메시지를 전송할 채널을 선택하세요"
+        )
         
-        with col1:
-            topic = st.text_input(
-                "주제 (Topic) *", 
-                placeholder="예: 봄 신상품 세일",
-                help="생성할 마케팅 문구의 주제를 입력하세요"
-            )
-            
-            channel = st.selectbox(
-                "채널 (Channel)",
-                ["RCS", "APP_PUSH"],
-                help="메시지를 전송할 채널을 선택하세요"
-            )
-            
-            use_emoji = st.selectbox(
-                "이모지 사용",
-                ["이모지 포함", "이모지 미포함"]
-            )
-        
-        with col2:
-            team_id = st.selectbox(
-                "팀 ID (Team ID)",
-                [
-                    ("선택 안 함 (일반 스타일)", ""),
-                    ("그로스마케팅팀", "1"),
-                    ("버티컬마케팅팀", "3"),
-                    ("마케팅운영팀", "4"),
-                    ("식품팀", "9"),
-                    ("여행서비스TFT", "2"),
-                    ("리빙팀", "8"),
-                    ("스포츠레저팀", "5"),
-                    ("b tft", "13"),
-                    ("유아동패션팀", "10"),
-                    ("명품잡화팀", "14"),
-                    ("L.TOWN팀", "11"),
-                    ("B2B팀", "16"),
-                    ("패션팀", "6"),
-                    ("브랜드뷰티팀", "7"),
-                    ("제휴서비스상품팀", "12"),
-                    ("브랜드패션팀", "15"),
-                    ("디지털가전팀", "17")
-                ],
-                help="팀별 스타일을 반영하려면 팀을 선택하세요"
-            )
-            
-            brand = st.text_input(
-                "브랜드 (Brand)",
-                placeholder="예: 롯데백화점, 롯데마트"
-            )
-        
-        # 추가 정보
-        col3, col4 = st.columns(2)
-        
-        with col3:
-            event_name = st.text_input(
-                "행사명 (Event Name)",
-                placeholder="예: 추석 대축제, 봄맞이 세일"
-            )
-            
-            target_audience = st.text_input(
-                "타겟 고객 (Target Audience)",
-                placeholder="예: 20-30대 여성"
-            )
-        
-        with col4:
-            discount_type = st.text_input(
-                "할인 유형 (Discount Type)",
-                placeholder="예: 30%할인, 2000원 쿠폰, 특가전 ~50%",
-                help="할인 관련 키워드를 쉼표로 구분하여 입력하세요"
-            )
-            
-            appeal_point = st.text_input(
-                "소구 포인트 (Appeal Point)",
-                placeholder="예: 카드할인+신규고객혜택, 무료배송, 한정수량",
-                help="고객에게 어필할 포인트를 쉼표로 구분하여 입력하세요"
-            )
-        
-        # 톤앤매너와 기타 설정
-        col5, col6 = st.columns(2)
-        
-        with col5:
-            tone = st.selectbox(
-                "톤앤매너 (Tone)",
-                ["친근한", "전문적인", "감성적인", "긴박한", "프리미엄"]
-            )
-            
-            reference_text = st.text_area(
-                "참고 텍스트 (Reference)",
-                placeholder="AI가 참고할 기초 텍스트 (선택사항)",
-                height=100
-            )
-        
-        with col6:
-            count = st.number_input(
-                "생성 개수",
-                min_value=1,
-                max_value=10,
-                value=5,
-                help="1개부터 10개까지 생성 가능합니다"
-            )
-        
-        # 제출 버튼
-        submitted = st.form_submit_button(
-            "✨ 문구 생성하기",
-            use_container_width=True
+        use_emoji = st.selectbox(
+            "이모지 사용",
+            ["이모지 포함", "이모지 미포함"]
         )
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        brand = st.text_input(
+            "브랜드 (Brand)",
+            placeholder="예: 롯데백화점, 롯데마트",
+            help="브랜드명을 입력하세요"
+        )
+        
+        team_id = st.selectbox(
+            "팀 ID (Team ID)",
+            [
+                ("선택 안 함 (일반 스타일)", ""),
+                ("그로스마케팅팀", "1"),
+                ("버티컬마케팅팀", "3"),
+                ("마케팅운영팀", "4"),
+                ("식품팀", "9"),
+                ("여행서비스TFT", "2"),
+                ("리빙팀", "8"),
+                ("스포츠레저팀", "5"),
+                ("b tft", "13"),
+                ("유아동패션팀", "10"),
+                ("명품잡화팀", "14"),
+                ("L.TOWN팀", "11"),
+                ("B2B팀", "16"),
+                ("패션팀", "6"),
+                ("브랜드뷰티팀", "7"),
+                ("제휴서비스상품팀", "12"),
+                ("브랜드패션팀", "15"),
+                ("디지털가전팀", "17")
+            ],
+            help="팀별 스타일을 반영하려면 팀을 선택하세요"
+        )
+        
+        discount_type = st.text_input(
+            "할인 유형 (Discount Type) *",
+            placeholder="예: 30%할인, 2000원 쿠폰, 특가전 ~50%",
+            help="할인 관련 키워드를 쉼표로 구분하여 입력하세요"
+        )
     
-    # 폼 제출 처리
-    if submitted:
-        if not topic:
-            st.error("❌ 주제는 필수 입력 항목입니다.")
+    # 추가 정보
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        target_audience = st.text_input(
+            "타겟 고객 (Target Audience) *",
+            placeholder="예: 20-30대 여성"
+        )
+    
+    with col4:
+        appeal_point = st.text_input(
+            "소구 포인트 (Appeal Point) *",
+            placeholder="예: 카드할인+신규고객혜택, 무료배송, 한정수량",
+            help="고객에게 어필할 포인트를 쉼표로 구분하여 입력하세요"
+        )
+    
+    # 톤앤매너와 기타 설정
+    col5, col6 = st.columns(2)
+    
+    with col5:
+        tone = st.selectbox(
+            "톤앤매너 (Tone)",
+            ["친근한", "전문적인", "감성적인", "긴박한", "프리미엄"]
+        )
+        
+        reference_text = st.text_area(
+            "참고 텍스트 (Reference)",
+            placeholder="AI가 참고할 기초 텍스트 (선택사항)",
+            height=100
+        )
+    
+    with col6:
+        count = st.number_input(
+            "생성 개수",
+            min_value=1,
+            max_value=10,
+            value=5,
+            help="1개부터 10개까지 생성 가능합니다"
+        )
+    
+    # 제출 버튼
+    submitted = st.form_submit_button(
+        "✨ 문구 생성하기",
+        use_container_width=True
+    )
+
+
+# 폼 제출 처리
+if submitted:
+        # 필수 항목 검증
+        if not event_name:
+            st.error("행사명은 필수 입력 항목입니다.")
+        elif not channel:
+            st.error("채널은 필수 입력 항목입니다.")
+        elif not discount_type and not target_audience and not appeal_point:
+            st.error("할인 유형, 타겟 고객, 소구 포인트 중 최소 하나는 입력해야 합니다.")
         else:
             # 로딩 표시
-            with st.spinner("🤖 AI가 문구를 생성하고 있습니다..."):
+            with st.spinner("AI가 문구를 생성하고 있습니다..."):
                 try:
                     # MarketingLogic 인스턴스 생성
                     logic = MarketingLogic()
                     
                     # 폼 데이터 구성
                     form_data = {
-                        'topic': topic,
-                        'channel': channel,
-                        'use_emoji': 'true' if use_emoji == "이모지 포함" else 'false',
-                        'team_id': team_id,
-                        'brand': brand,
                         'event_name': event_name,
+                        'brand': brand,
+                        'channel': channel,
+                        'team_id': team_id,
+                        'use_emoji': 'true' if use_emoji == "이모지 포함" else 'false',
                         'target_audience': target_audience,
                         'discount_type': discount_type,
                         'appeal_point': appeal_point,
@@ -517,7 +515,7 @@ with st.container():
                                                 textArea.select();
                                                 textArea.setSelectionRange(0, 99999);
                                                 document.execCommand('copy');
-                                                alert('📋 클립보드에 복사되었습니다!');
+                                                alert('클립보드에 복사되었습니다!');
                                             " style="
                                                 background: #6d67a8;
                                                 color: white;
